@@ -1,0 +1,9 @@
+[package]
+name = "bindings-gui"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futures-signals = "0.3.34"
+gtk4 = "0.9.6"
+serde = { version = "1.0.219", features = ["derive"] }
