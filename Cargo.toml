@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 anyhow = "1.0.98"
+catppuccin-egui = { version = "5.5.0", default-features = false, features = ["egui31"] }
 eframe = "0.31.1"
 egui = "0.31.1"
 egui_dock = "0.16.0"

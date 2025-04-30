@@ -10,8 +10,8 @@ use std::fs::read_to_string;
 use std::ops::Deref;
 use std::path::PathBuf;
 
-mod managetab;
 mod from_commands;
+mod managetab;
 
 use serde::{Deserialize, Serialize};
 
@@ -56,7 +56,7 @@ impl RunWhen {
             RunWhen::OnFalse => "on false",
             RunWhen::WhileTrue => "while true",
             RunWhen::WhileFalse => "while false",
-        } 
+        }
     }
 }
 
@@ -121,19 +121,17 @@ impl App {
             Self::Initial { .. } => true,
             _ => false,
         }
-
     }
 }
 
 impl eframe::App for App {
     fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+        catppuccin_egui::set_theme(ctx, catppuccin_egui::MOCHA);
+
         if self.initial() {
             egui::CentralPanel::default().show(ctx, |ui| match self {
                 Self::Initial { error } => {
-                    if ui
-                        .add(egui::Label::new("Open Project Directory").sense(egui::Sense::click()))
-                        .clicked()
-                    {
+                    if ui.button("Open Project Directory").clicked() {
                         if let Some(path) = rfd::FileDialog::new().pick_folder() {
                             match Views::from_directory(path) {
                                 Ok(s) => {
@@ -177,11 +175,8 @@ impl TabViewer for Views {
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         let update = match tab {
-            PageId::CommandsToBindings => 
-                from_commands::FromCommands::ui(ui, self),
-            PageId::BindingsToCommands => {
-                false
-            },
+            PageId::CommandsToBindings => from_commands::FromCommands::ui(ui, self),
+            PageId::BindingsToCommands => false,
             PageId::ManageCommands => ManageTab::ui(ui, self),
         };
     }
@@ -255,7 +250,7 @@ impl Views {
             command_to_bindings: bindings.command_to_bindings,
             binding_to_command,
             manage_tab: ManageTab::default(),
-            from_commands: FromCommands::default()
+            from_commands: FromCommands::default(),
         }
     }
 
@@ -296,7 +291,6 @@ impl Views {
         Ok(Self::from_bindings(bindings, oldpath))
     }
 }
-
 
 fn main() -> Result<(), eframe::Error> {
     let native_options = eframe::NativeOptions {
