@@ -1,15 +1,18 @@
-use anyhow::Result;
-use egui::{ScrollArea, Ui};
+use anyhow::{Context, Result};
+use egui::{Align2, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
+use egui_toast::{Toast, Toasts};
 use from_commands::FromCommands;
 use managetab::ManageTab;
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::Display;
-use std::fs::read_to_string;
-use std::ops::Deref;
+use std::fs::{create_dir_all, read_to_string, File};
+use std::io::Write;
 use std::path::PathBuf;
 
+mod from_binding;
 mod from_commands;
 mod managetab;
 
@@ -125,7 +128,7 @@ impl App {
 }
 
 impl eframe::App for App {
-    fn update(&mut self, ctx: &egui::Context, frame: &mut eframe::Frame) {
+    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         catppuccin_egui::set_theme(ctx, catppuccin_egui::MOCHA);
 
         if self.initial() {
@@ -154,9 +157,25 @@ impl eframe::App for App {
         match self {
             App::Initial { .. } => {}
             App::Running { views, tree } => {
+                let mut toasts = Toasts::new().anchor(Align2::LEFT_BOTTOM, (-10.0, -10.0));
+
                 DockArea::new(tree)
                     .style(Style::from_egui(ctx.style().as_ref()))
+                    .show_close_buttons(false)
+                    .show_add_buttons(false)
+                    .show_leaf_collapse_buttons(false)
+                    .show_leaf_close_all_buttons(false)
                     .show(ctx, views);
+
+                for e in views.error.drain(0..) {
+                    toasts.add(Toast {
+                        kind: egui_toast::ToastKind::Error,
+                        text: e.into(),
+                        ..Default::default()
+                    });
+                }
+
+                toasts.show(ctx);
             }
         }
     }
@@ -179,16 +198,27 @@ impl TabViewer for Views {
             PageId::BindingsToCommands => false,
             PageId::ManageCommands => ManageTab::ui(ui, self),
         };
+
+        if update {
+            match self.write_out() {
+                Ok(_) => {}
+                Err(err) => self.add_error(err.to_string()),
+            }
+        }
     }
 
     fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+        false
+    }
+
+    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
         false
     }
 }
 
 #[derive(Debug)]
 struct Views {
-    directory: PathBuf,
+    save_file: PathBuf,
 
     url: Option<String>,
 
@@ -199,14 +229,17 @@ struct Views {
 
     manage_tab: managetab::ManageTab,
     from_commands: from_commands::FromCommands,
+    from_bindings: from_binding::FromBindings,
+
+    error: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-struct Bindings {
-    url: Option<String>,
+struct Bindings<'a> {
+    url: Cow<'a, Option<String>>,
 
-    commands: BTreeSet<String>,
-    command_to_bindings: BTreeMap<String, Vec<Binding>>,
+    commands: Cow<'a, BTreeSet<String>>,
+    command_to_bindings: Cow<'a, BTreeMap<String, Vec<Binding>>>,
 }
 
 #[derive(Debug)]
@@ -231,6 +264,59 @@ impl Display for ProgramError {
 impl Error for ProgramError {}
 
 impl Views {
+    fn try_add_binding(&mut self, binding: Binding, command: &String) -> bool {
+        if self
+            .command_to_bindings
+            .get(command)
+            .unwrap_or(&Vec::new())
+            .contains(&binding)
+        {
+            self.error.push("you already have this binding".to_string());
+            false
+        } else {
+            self.command_to_bindings
+                .entry(command.clone())
+                .or_insert(Vec::new())
+                .push(binding);
+
+            self.binding_to_command
+                .entry(binding)
+                .or_insert(Vec::new())
+                .push(command.clone());
+            true
+        }
+    }
+
+    fn write_out(&self) -> Result<()> {
+        // let mut dir = self.directory.clone();
+
+        create_dir_all(self.save_file.parent().unwrap())?;
+
+        let mut file =
+            File::create(&self.save_file).with_context(|| "failed to create file to save to")?;
+
+        file.write_all(
+            serde_json::to_string(&self.to_bindings())
+                .unwrap()
+                .as_bytes(),
+        )
+        .with_context(|| "failed to save to disk")?;
+
+        Ok(())
+    }
+
+    fn to_bindings(&self) -> Bindings {
+        Bindings {
+            url: Cow::Borrowed(&self.url),
+            commands: Cow::Borrowed(&self.commands),
+            command_to_bindings: Cow::Borrowed(&self.command_to_bindings),
+        }
+    }
+
+    fn add_error(&mut self, error: String) {
+        self.error.push(error);
+    }
+
     fn from_bindings(bindings: Bindings, path: PathBuf) -> Self {
         let mut binding_to_command = BTreeMap::new();
 
@@ -244,13 +330,14 @@ impl Views {
         }
 
         Self {
-            directory: path,
-            url: bindings.url,
-            commands: bindings.commands,
-            command_to_bindings: bindings.command_to_bindings,
+            save_file: path,
+            url: bindings.url.into_owned(),
+            commands: bindings.commands.into_owned(),
+            command_to_bindings: bindings.command_to_bindings.into_owned(),
             binding_to_command,
             manage_tab: ManageTab::default(),
             from_commands: FromCommands::default(),
+            error: Vec::new(),
         }
     }
 
@@ -260,10 +347,9 @@ impl Views {
             // return format!("{} is not a directory", path.display())?;
         }
 
-        let oldpath = path.clone();
-
         path.push("src");
         path.push("main");
+        path.push("deploy");
         path.push("bindings.json");
 
         if path.is_dir() {
@@ -274,21 +360,22 @@ impl Views {
 
         if !path.exists() {
             return Ok(Self {
-                directory: oldpath,
+                save_file: path,
                 url: None,
                 commands: BTreeSet::new(),
                 command_to_bindings: BTreeMap::new(),
                 binding_to_command: BTreeMap::new(),
                 manage_tab: ManageTab::default(),
                 from_commands: FromCommands::default(),
+                error: Vec::new(),
             });
         }
 
-        let file = read_to_string(path)?;
+        let file = read_to_string(&path)?;
 
         let bindings: Bindings = serde_json::from_str(&file)?;
 
-        Ok(Self::from_bindings(bindings, oldpath))
+        Ok(Self::from_bindings(bindings, path))
     }
 }
 

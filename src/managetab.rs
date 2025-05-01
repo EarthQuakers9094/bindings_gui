@@ -1,11 +1,6 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    ops::Deref,
-};
-
 use egui::{ScrollArea, Ui};
 
-use crate::{Binding, Views};
+use crate::Views;
 
 #[derive(Debug)]
 pub(crate) struct ManageTab {
@@ -42,9 +37,7 @@ impl ManageTab {
                     }
                 });
 
-                let mut to_remove = Vec::new();
-
-                for command in view.commands.iter() {
+                view.commands.retain(|command| {
                     ui.horizontal(|ui| {
                         ui.label(command);
                         if ui.button("X").clicked() {
@@ -55,19 +48,17 @@ impl ManageTab {
                                 .unwrap_or(true);
 
                             if valid_remove {
-                                to_remove.push(command.clone()); // TODO try to remove this clone
+                                update = true;
+                                false
                             } else {
-                                todo!("display that can't remove because still used")
+                                view.error.push("can't delete a command that is still used".to_string());
+                                true
                             }
+                        } else {
+                            true
                         }
-                    });
-                }
-
-                update |= !to_remove.is_empty();
-
-                for c in to_remove.iter() {
-                    view.commands.remove(c.deref());
-                }
+                    }).inner
+                });
 
                 update
             })

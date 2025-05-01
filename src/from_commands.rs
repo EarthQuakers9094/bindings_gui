@@ -1,5 +1,3 @@
-use std::fmt::format;
-
 use egui::{
     ahash::{HashMap, HashMapExt},
     ComboBox, ScrollArea, Ui,
@@ -40,17 +38,20 @@ impl Default for FromCommands {
 impl FromCommands {
     pub fn ui(ui: &mut Ui, view: &mut Views) -> bool {
         ScrollArea::vertical().show(ui, |ui| {
-            for command in view.commands.iter() {
-                let v: Vec<_> = Vec::new();
+            // TODO ADD POV BINDING
 
+            for command in view.commands.iter() {
                 ui.horizontal(|ui| {
                     ui.label(command);
-                    let bindings = view.command_to_bindings.get(command).unwrap_or(&v);
 
-                    for b in bindings {
-                        ui.label(format!("{b}"));
+                    if let Some(bindings) = view.command_to_bindings.get_mut(command) {
+                        bindings.retain(|b| {
+                            ui.label(format!("{b}"));
+
+                            !ui.button("X").clicked()
+                        });
                     }
-                    
+
                     let edit_state = view
                         .from_commands
                         .editing_states
@@ -89,15 +90,24 @@ impl FromCommands {
                     };
 
                     if ui.button("add").clicked() {
-                        view.command_to_bindings
-                            .entry(command.clone())
-                            .or_insert(Vec::new())
-                            .push(binding);
+                        if view
+                            .command_to_bindings
+                            .get(command)
+                            .unwrap_or(&Vec::new())
+                            .contains(&binding)
+                        {
+                            view.error.push("you already have this binding".to_string());
+                        } else {
+                            view.command_to_bindings
+                                .entry(command.clone())
+                                .or_insert(Vec::new())
+                                .push(binding);
 
-                        view.binding_to_command
-                            .entry(binding)
-                            .or_insert(Vec::new())
-                            .push(command.clone());
+                            view.binding_to_command
+                                .entry(binding)
+                                .or_insert(Vec::new())
+                                .push(command.clone());
+                        }
                     }
                 });
             }

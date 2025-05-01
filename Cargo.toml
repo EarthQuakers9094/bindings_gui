@@ -8,6 +8,8 @@ anyhow = "1.0.98"
 catppuccin-egui = { version = "5.5.0", default-features = false, features = ["egui31"] }
 eframe = "0.31.1"
 egui = "0.31.1"
+egui-toast = "0.17.0"
+egui_autocomplete = "10.1.0"
 egui_dock = "0.16.0"
 rfd = "0.15.3"
 serde = { version = "1.0.219", features = ["derive"] }
