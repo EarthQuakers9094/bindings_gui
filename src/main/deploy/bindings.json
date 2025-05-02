@@ -1,1 +1,1 @@
-{"url":null,"commands":[],"command_to_bindings":{"e":[],"test":[]}}
+{"url":null,"commands":["barge_toss","eject_algae","eject_coral","intake_algae","intake_coral","l1_pose","l2_pose","l3_pose","l4_pose","pickup_pose"],"command_to_bindings":{"e":[],"run":[],"run_leds":[],"test":[]}}

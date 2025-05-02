@@ -40,17 +40,15 @@ impl FromCommands {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
 
-            for command in view.commands.iter() {
+            for command in &view.commands {
                 ui.horizontal(|ui| {
                     ui.label(command);
 
-                    if let Some(bindings) = view.command_to_bindings.get_mut(command) {
-                        bindings.retain(|b| {
-                            ui.label(format!("{b}"));
-
-                            !ui.button("X").clicked()
-                        });
-                    }
+                    view.bindings.retain_if_command(command, |binding| {
+                        ui.label(binding.to_string());
+                        
+                        !ui.button("X").clicked()
+                    });
 
                     let edit_state = view
                         .from_commands
@@ -90,24 +88,7 @@ impl FromCommands {
                     };
 
                     if ui.button("add").clicked() {
-                        if view
-                            .command_to_bindings
-                            .get(command)
-                            .unwrap_or(&Vec::new())
-                            .contains(&binding)
-                        {
-                            view.error.push("you already have this binding".to_string());
-                        } else {
-                            view.command_to_bindings
-                                .entry(command.clone())
-                                .or_insert(Vec::new())
-                                .push(binding);
-
-                            view.binding_to_command
-                                .entry(binding)
-                                .or_insert(Vec::new())
-                                .push(command.clone());
-                        }
+                        view.bindings.try_add_binding(command, binding, &mut view.error);                        
                     }
                 });
             }

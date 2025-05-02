@@ -1,7 +1,8 @@
 use anyhow::{Context, Result};
-use egui::{Align2, Ui};
+use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_toast::{Toast, Toasts};
+use from_binding::FromBindings;
 use from_commands::FromCommands;
 use managetab::ManageTab;
 use std::borrow::Cow;
@@ -10,6 +11,7 @@ use std::error::Error;
 use std::fmt::Display;
 use std::fs::{create_dir_all, read_to_string, File};
 use std::io::Write;
+use std::ops::Deref;
 use std::path::PathBuf;
 
 mod from_binding;
@@ -60,6 +62,16 @@ impl RunWhen {
             RunWhen::WhileTrue => "while true",
             RunWhen::WhileFalse => "while false",
         }
+    }
+
+    fn iter() -> impl Iterator<Item = Self> {
+        [
+            RunWhen::OnTrue,
+            RunWhen::OnFalse,
+            RunWhen::WhileTrue,
+            RunWhen::WhileFalse,
+        ]
+        .into_iter()
     }
 }
 
@@ -157,7 +169,9 @@ impl eframe::App for App {
         match self {
             App::Initial { .. } => {}
             App::Running { views, tree } => {
-                let mut toasts = Toasts::new().anchor(Align2::LEFT_BOTTOM, (-10.0, -10.0));
+                let mut toasts = Toasts::new()
+                    .anchor(Align2::LEFT_BOTTOM, (-10.0, -10.0))
+                    .direction(Direction::BottomUp);
 
                 DockArea::new(tree)
                     .style(Style::from_egui(ctx.style().as_ref()))
@@ -195,7 +209,7 @@ impl TabViewer for Views {
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
         let update = match tab {
             PageId::CommandsToBindings => from_commands::FromCommands::ui(ui, self),
-            PageId::BindingsToCommands => false,
+            PageId::BindingsToCommands => from_binding::FromBindings::ui(ui, self),
             PageId::ManageCommands => ManageTab::ui(ui, self),
         };
 
@@ -217,21 +231,123 @@ impl TabViewer for Views {
 }
 
 #[derive(Debug)]
+struct BindingsMap {
+    command_to_bindings: BTreeMap<String, Vec<Binding>>,
+    binding_to_command: BTreeMap<(u8, Button), Vec<(String, RunWhen)>>,
+}
+
+impl Default for BindingsMap {
+    fn default() -> Self {
+        Self {
+            command_to_bindings: Default::default(),
+            binding_to_command: Default::default(),
+        }
+    }
+}
+
+impl BindingsMap {
+    fn add_binding(&mut self, command: &String, binding: Binding) -> bool {
+        if self
+            .command_to_bindings
+            .get(command)
+            .unwrap_or(&Vec::new())
+            .contains(&binding)
+        {
+            false
+        } else {
+            self.command_to_bindings
+                .entry(command.clone())
+                .or_insert(Vec::new())
+                .push(binding);
+
+            self.binding_to_command
+                .entry((binding.controller, binding.button))
+                .or_insert(Vec::new())
+                .push((command.clone(), binding.when));
+
+            true
+        }
+    }
+
+    fn retain_if_command<F>(&mut self, command: &String, mut f: F)
+    where
+        F: FnMut(Binding) -> bool,
+    {
+        if let Some(bindings) = self.command_to_bindings.get_mut(command) {
+            bindings.retain(|binding| {
+                let keep = f(*binding);
+
+                if !keep {
+                    self.binding_to_command
+                        .get_mut(&(binding.controller, binding.button))
+                        .unwrap()
+                        .retain(|(c, when)| !(c == command && *when == binding.when));
+                }
+
+                keep
+            });
+        }
+    }
+
+    fn try_add_binding(&mut self, command: &String, binding: Binding, errors: &mut Vec<String>) {
+        if !self.add_binding(command, binding) {
+            errors.push("binding alreadt exists".to_string());
+        }
+    }
+
+    fn is_used(&self, command: &String) -> bool {
+        self.command_to_bindings
+            .get(command)
+            .map_or(false, |l| !l.is_empty())
+    }
+
+    fn remove_from_bindings(&mut self, command: &String, binding: Binding) {
+        if let Some(a) = self
+            .binding_to_command
+            .get_mut(&(binding.controller, binding.button))
+        {
+            a.retain(|(c, when)| !(command == c && *when == binding.when));
+        }
+    }
+
+    fn remove_from_commands(&mut self, command: String, binding: Binding) {
+        if let Some(bindings) = self.command_to_bindings.get_mut(&command) {
+            bindings.retain(|b| *b != binding);
+        }
+    }
+}
+
+#[derive(Debug)]
 struct Views {
     save_file: PathBuf,
 
     url: Option<String>,
 
     commands: BTreeSet<String>,
-    command_to_bindings: BTreeMap<String, Vec<Binding>>,
 
-    binding_to_command: BTreeMap<Binding, Vec<String>>,
+    bindings: BindingsMap,
 
     manage_tab: managetab::ManageTab,
+
     from_commands: from_commands::FromCommands,
     from_bindings: from_binding::FromBindings,
 
     error: Vec<String>,
+}
+
+impl Default for Views {
+    fn default() -> Self {
+        Self {
+            save_file: Default::default(),
+            url: Default::default(),
+            commands: Default::default(),
+            manage_tab: Default::default(),
+            from_commands: Default::default(),
+            from_bindings: Default::default(),
+            error: Default::default(),
+            bindings: Default::default(),
+        }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
@@ -264,29 +380,6 @@ impl Display for ProgramError {
 impl Error for ProgramError {}
 
 impl Views {
-    fn try_add_binding(&mut self, binding: Binding, command: &String) -> bool {
-        if self
-            .command_to_bindings
-            .get(command)
-            .unwrap_or(&Vec::new())
-            .contains(&binding)
-        {
-            self.error.push("you already have this binding".to_string());
-            false
-        } else {
-            self.command_to_bindings
-                .entry(command.clone())
-                .or_insert(Vec::new())
-                .push(binding);
-
-            self.binding_to_command
-                .entry(binding)
-                .or_insert(Vec::new())
-                .push(command.clone());
-            true
-        }
-    }
-
     fn write_out(&self) -> Result<()> {
         // let mut dir = self.directory.clone();
 
@@ -309,7 +402,7 @@ impl Views {
         Bindings {
             url: Cow::Borrowed(&self.url),
             commands: Cow::Borrowed(&self.commands),
-            command_to_bindings: Cow::Borrowed(&self.command_to_bindings),
+            command_to_bindings: Cow::Borrowed(&self.bindings.command_to_bindings),
         }
     }
 
@@ -323,9 +416,9 @@ impl Views {
         for (command, bindings) in bindings.command_to_bindings.iter() {
             for b in bindings {
                 binding_to_command
-                    .entry(*b)
+                    .entry((b.controller, b.button))
                     .or_insert(Vec::new())
-                    .push(command.clone());
+                    .push((command.clone(), b.when));
             }
         }
 
@@ -333,11 +426,11 @@ impl Views {
             save_file: path,
             url: bindings.url.into_owned(),
             commands: bindings.commands.into_owned(),
-            command_to_bindings: bindings.command_to_bindings.into_owned(),
-            binding_to_command,
-            manage_tab: ManageTab::default(),
-            from_commands: FromCommands::default(),
-            error: Vec::new(),
+            bindings: BindingsMap {
+                command_to_bindings: bindings.command_to_bindings.into_owned(),
+                binding_to_command,
+            },
+            ..Default::default()
         }
     }
 
@@ -361,13 +454,7 @@ impl Views {
         if !path.exists() {
             return Ok(Self {
                 save_file: path,
-                url: None,
-                commands: BTreeSet::new(),
-                command_to_bindings: BTreeMap::new(),
-                binding_to_command: BTreeMap::new(),
-                manage_tab: ManageTab::default(),
-                from_commands: FromCommands::default(),
-                error: Vec::new(),
+                ..Default::default()
             });
         }
 

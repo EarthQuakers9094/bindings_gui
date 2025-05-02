@@ -41,11 +41,8 @@ impl ManageTab {
                     ui.horizontal(|ui| {
                         ui.label(command);
                         if ui.button("X").clicked() {
-                            let valid_remove = view
-                                .command_to_bindings
-                                .get(command)
-                                .map(|n| n.is_empty())
-                                .unwrap_or(true);
+                            let valid_remove = !view
+                                .bindings.is_used(command);
 
                             if valid_remove {
                                 update = true;
