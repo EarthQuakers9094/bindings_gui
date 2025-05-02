@@ -31,7 +31,6 @@ pub struct FromCommands {
     pub editing_states: HashMap<String, BindingEditingState>,
 }
 
-
 impl Compenent for FromCommands {
     type OutputEvents = GlobalEvents;
 
@@ -50,17 +49,11 @@ impl Compenent for FromCommands {
                 ui.horizontal(|ui| {
                     ui.label(command);
 
-                    for binding in env
-                        .bindings
-                        .command_to_bindings
-                        .get(command)
-                        .unwrap_or(&Vec::new())
-                    {
+                    for binding in env.bindings.bindings_for_command(command) {
                         ui.label(binding.to_string());
 
                         if !ui.button("X").clicked() {
-                            output
-                                .add_event(GlobalEvents::RemoveBinding(*binding, command.clone()));
+                            output.add_event(GlobalEvents::RemoveBinding(binding, command.clone()));
                         }
                     }
 

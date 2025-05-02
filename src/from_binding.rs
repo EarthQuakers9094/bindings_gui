@@ -62,7 +62,6 @@ pub struct FromBindings {
     pub filtered_commands: SingleCash,
 }
 
-
 impl Compenent for FromBindings {
     type OutputEvents = GlobalEvents;
 
@@ -86,8 +85,7 @@ impl Compenent for FromBindings {
                 }
             });
 
-            self.bindings
-                .retain(|b| !env.bindings.binding_to_command.contains_key(b));
+            self.bindings.retain(|b| !env.bindings.has_button(*b));
 
             for (controller, button) in &self.bindings {
                 ui.horizontal(|ui| {
@@ -106,7 +104,7 @@ impl Compenent for FromBindings {
                 });
             }
 
-            for ((controller, button), commands) in &env.bindings.binding_to_command {
+            for ((controller, button), commands) in &env.bindings.binding_to_commands {
                 ui.horizontal(|ui| {
                     ui.label(format!("{controller}:{button}"));
 

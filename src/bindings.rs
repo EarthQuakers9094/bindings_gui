@@ -96,31 +96,58 @@ impl Display for Binding {
 #[derive(Debug, Default)]
 pub(crate) struct BindingsMap {
     pub command_to_bindings: BTreeMap<String, Vec<Binding>>,
-    pub binding_to_command: BTreeMap<(u8, Button), Vec<(String, RunWhen)>>,
+    pub binding_to_commands: BTreeMap<(u8, Button), Vec<(String, RunWhen)>>,
+}
+
+impl From<BTreeMap<String, Vec<Binding>>> for BindingsMap {
+    fn from(command_to_bindings: BTreeMap<String, Vec<Binding>>) -> Self {
+        let mut binding_to_command = BTreeMap::new();
+
+        for (command, bindings) in &command_to_bindings {
+            for b in bindings {
+                binding_to_command
+                    .entry((b.controller, b.button))
+                    .or_insert(Vec::new())
+                    .push((command.clone(), b.when));
+            }
+        }
+
+        BindingsMap {
+            command_to_bindings,
+            binding_to_commands: binding_to_command,
+        }
+    }
 }
 
 impl BindingsMap {
-    pub(crate) fn add_binding(&mut self, command: String, binding: Binding) -> bool {
-        if self
+    pub(crate) fn add_binding(&mut self, command: String, binding: Binding) {
+        if !self
             .command_to_bindings
             .get(&command)
             .unwrap_or(&Vec::new())
             .contains(&binding)
         {
-            false
-        } else {
             self.command_to_bindings
                 .entry(command.clone())
                 .or_default()
                 .push(binding);
 
-            self.binding_to_command
+            self.binding_to_commands
                 .entry((binding.controller, binding.button))
                 .or_default()
                 .push((command.clone(), binding.when));
-
-            true
         }
+    }
+
+    pub(crate) fn bindings_for_command(
+        &self,
+        command: &String,
+    ) -> impl Iterator<Item = Binding> + '_ {
+        self.command_to_bindings
+            .get(command)
+            .into_iter()
+            .flatten()
+            .cloned()
     }
 
     pub(crate) fn remove_binding(&mut self, command: &String, binding: Binding) {
@@ -128,7 +155,7 @@ impl BindingsMap {
             .get_mut(command)
             .unwrap()
             .retain(|b| *b != binding);
-        self.binding_to_command
+        self.binding_to_commands
             .get_mut(&(binding.controller, binding.button))
             .unwrap()
             .retain(|(c, when): &(String, RunWhen)| !(command == c && *when == binding.when));
@@ -140,6 +167,10 @@ impl BindingsMap {
             .is_some_and(|l| !l.is_empty())
     }
 
+    pub(crate) fn has_button(&self, button: (u8, Button)) -> bool {
+        self.binding_to_commands.contains_key(&button)
+    }
+
     pub(crate) fn has_binding(&self, command: &String, binding: Binding) -> bool {
         self.command_to_bindings
             .get(command)
@@ -148,7 +179,7 @@ impl BindingsMap {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub(crate) struct Bindings<'a> {
+pub(crate) struct SaveData<'a> {
     pub(crate) url: Cow<'a, Option<String>>,
     pub(crate) commands: Cow<'a, BTreeSet<String>>,
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<String, Vec<Binding>>>,

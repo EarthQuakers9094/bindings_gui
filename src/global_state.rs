@@ -1,6 +1,6 @@
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeSet,
     fs::{create_dir_all, read_to_string, File},
     io::Write,
     path::PathBuf,
@@ -11,7 +11,7 @@ use egui::Ui;
 use egui_toast::{Toast, Toasts};
 
 use crate::{
-    bindings::Binding, bindings::Bindings, bindings::BindingsMap, component::EventStream,
+    bindings::Binding, bindings::BindingsMap, bindings::SaveData, component::EventStream,
     ProgramError, Tab,
 };
 
@@ -80,8 +80,6 @@ impl State {
     }
 
     pub fn write_out(&self) -> Result<()> {
-        // let mut dir = self.directory.clone();
-
         create_dir_all(self.save_file.parent().unwrap())?;
 
         let mut file =
@@ -97,41 +95,26 @@ impl State {
         Ok(())
     }
 
-    fn to_bindings(&self) -> Bindings {
-        Bindings {
+    fn to_bindings(&self) -> SaveData {
+        SaveData {
             url: Cow::Borrowed(&self.url),
             commands: Cow::Borrowed(&self.commands),
             command_to_bindings: Cow::Borrowed(&self.bindings.command_to_bindings),
         }
     }
 
-    fn from_bindings(bindings: Bindings, path: PathBuf) -> Self {
-        let mut binding_to_command = BTreeMap::new();
-
-        for (command, bindings) in bindings.command_to_bindings.iter() {
-            for b in bindings {
-                binding_to_command
-                    .entry((b.controller, b.button))
-                    .or_insert(Vec::new())
-                    .push((command.clone(), b.when));
-            }
-        }
-
+    fn from_bindings(bindings: SaveData, path: PathBuf) -> Self {
         Self {
             save_file: path,
             url: bindings.url.into_owned(),
             commands: bindings.commands.into_owned(),
-            bindings: BindingsMap {
-                command_to_bindings: bindings.command_to_bindings.into_owned(),
-                binding_to_command,
-            },
+            bindings: bindings.command_to_bindings.into_owned().into(),
         }
     }
 
     pub fn from_directory(mut path: PathBuf) -> Result<Self> {
         if !path.is_dir() {
             return Err(ProgramError::NotDirectory(path))?;
-            // return format!("{} is not a directory", path.display())?;
         }
 
         path.push("src");
@@ -154,7 +137,7 @@ impl State {
 
         let file = read_to_string(&path)?;
 
-        let bindings: Bindings = serde_json::from_str(&file)?;
+        let bindings: SaveData = serde_json::from_str(&file)?;
 
         Ok(Self::from_bindings(bindings, path))
     }
