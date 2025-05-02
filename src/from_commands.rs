@@ -3,7 +3,7 @@ use egui::{
     ComboBox, ScrollArea, Ui,
 };
 
-use crate::{Binding, Button, RunWhen, Views};
+use crate::{component::Compenent, global_state::GlobalEvents, Binding, Button, RunWhen, Views};
 
 #[derive(Debug)]
 pub struct BindingEditingState {
@@ -24,7 +24,7 @@ impl Default for BindingEditingState {
 
 #[derive(Debug)]
 pub struct FromCommands {
-    editing_states: HashMap<String, BindingEditingState>,
+    pub editing_states: HashMap<String, BindingEditingState>,
 }
 
 impl Default for FromCommands {
@@ -35,23 +35,28 @@ impl Default for FromCommands {
     }
 }
 
-impl FromCommands {
-    pub fn ui(ui: &mut Ui, view: &mut Views) -> bool {
+impl Compenent for FromCommands {
+    type OutputEvents = GlobalEvents;
+
+    type Environment = Views;
+
+    fn render(&mut self, ui: &mut Ui, env: &Self::Environment, output: &mut crate::component::EventStream<Self::OutputEvents>) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
 
-            for command in &view.commands {
+            for command in &env.commands {
                 ui.horizontal(|ui| {
                     ui.label(command);
 
-                    view.bindings.retain_if_command(command, |binding| {
+                    for binding in env.bindings.command_to_bindings.get(command).unwrap_or(&Vec::new()) {
                         ui.label(binding.to_string());
-                        
-                        !ui.button("X").clicked()
-                    });
 
-                    let edit_state = view
-                        .from_commands
+                        if !ui.button("X").clicked() {
+                            output.add_event(GlobalEvents::RemoveBinding(*binding, command.clone()));
+                        }
+                    }
+
+                    let edit_state = self
                         .editing_states
                         .entry(command.clone())
                         .or_insert(BindingEditingState::default());
@@ -88,12 +93,10 @@ impl FromCommands {
                     };
 
                     if ui.button("add").clicked() {
-                        view.bindings.try_add_binding(command, binding, &mut view.error);                        
+                        output.add_event(GlobalEvents::AddBinding(binding, command.clone()));
                     }
                 });
             }
         });
-
-        false
     }
 }

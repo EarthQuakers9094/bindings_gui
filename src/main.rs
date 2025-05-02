@@ -1,18 +1,19 @@
-use anyhow::{Context, Result};
+use anyhow::Result;
+use component::Compenent;
 use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_toast::{Toast, Toasts};
-use managetab::ManageTab;
+use global_state::{GlobalEvents, Views};
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::Display;
-use std::fs::{create_dir_all, read_to_string, File};
-use std::io::Write;
 use std::path::PathBuf;
 
+mod component;
 mod from_binding;
 mod from_commands;
+mod global_state;
 mod managetab;
 
 use serde::{Deserialize, Serialize};
@@ -82,22 +83,10 @@ impl Display for Binding {
 }
 
 #[derive(Debug)]
-enum PageId {
-    CommandsToBindings,
-    BindingsToCommands,
-    ManageCommands,
-}
-
-#[derive(Debug)]
 enum App {
-    Initial {
-        error: Option<String>,
-    },
+    Initial { error: Option<String> },
 
-    Running {
-        views: Views,
-        tree: DockState<PageId>,
-    },
+    Running { views: Views, tree: DockState<Tab> },
 }
 
 impl Default for App {
@@ -111,9 +100,24 @@ impl App {
         Self::Running {
             views: view,
             tree: DockState::new(vec![
-                PageId::CommandsToBindings,
-                PageId::BindingsToCommands,
-                PageId::ManageCommands,
+                Tab {
+                    tab: Box::new(from_commands::FromCommands {
+                        ..Default::default()
+                    }),
+                    name: "commands to bindings",
+                },
+                Tab {
+                    tab: Box::new(from_binding::FromBindings {
+                        ..Default::default()
+                    }),
+                    name: "bindings to commands",
+                },
+                Tab {
+                    tab: Box::new(managetab::ManageTab {
+                        ..Default::default()
+                    }),
+                    name: "manage commands",
+                },
             ]),
         }
     }
@@ -166,54 +170,17 @@ impl eframe::App for App {
                     .show_add_buttons(false)
                     .show_leaf_collapse_buttons(false)
                     .show_leaf_close_all_buttons(false)
-                    .show(ctx, views);
-
-                for e in views.error.drain(0..) {
-                    toasts.add(Toast {
-                        kind: egui_toast::ToastKind::Error,
-                        text: e.into(),
-                        ..Default::default()
-                    });
-                }
+                    .show(
+                        ctx,
+                        &mut Tabs {
+                            view: views,
+                            toasts: &mut toasts,
+                        },
+                    );
 
                 toasts.show(ctx);
             }
         }
-    }
-}
-
-impl TabViewer for Views {
-    type Tab = PageId;
-
-    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
-        match tab {
-            PageId::CommandsToBindings => "commands to bindings".into(),
-            PageId::BindingsToCommands => "bindings to commands".into(),
-            PageId::ManageCommands => "manage commands".into(),
-        }
-    }
-
-    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        let update = match tab {
-            PageId::CommandsToBindings => from_commands::FromCommands::ui(ui, self),
-            PageId::BindingsToCommands => from_binding::FromBindings::ui(ui, self),
-            PageId::ManageCommands => ManageTab::ui(ui, self),
-        };
-
-        if update {
-            match self.write_out() {
-                Ok(_) => {}
-                Err(err) => self.add_error(err.to_string()),
-            }
-        }
-    }
-
-    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
-        false
-    }
-
-    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
-        false
     }
 }
 
@@ -233,10 +200,10 @@ impl Default for BindingsMap {
 }
 
 impl BindingsMap {
-    fn add_binding(&mut self, command: &String, binding: Binding) -> bool {
+    fn add_binding(&mut self, command: String, binding: Binding) -> bool {
         if self
             .command_to_bindings
-            .get(command)
+            .get(&command)
             .unwrap_or(&Vec::new())
             .contains(&binding)
         {
@@ -256,30 +223,15 @@ impl BindingsMap {
         }
     }
 
-    fn retain_if_command<F>(&mut self, command: &String, mut f: F)
-    where
-        F: FnMut(Binding) -> bool,
-    {
-        if let Some(bindings) = self.command_to_bindings.get_mut(command) {
-            bindings.retain(|binding| {
-                let keep = f(*binding);
-
-                if !keep {
-                    self.binding_to_command
-                        .get_mut(&(binding.controller, binding.button))
-                        .unwrap()
-                        .retain(|(c, when)| !(c == command && *when == binding.when));
-                }
-
-                keep
-            });
-        }
-    }
-
-    fn try_add_binding(&mut self, command: &String, binding: Binding, errors: &mut Vec<String>) {
-        if !self.add_binding(command, binding) {
-            errors.push("binding alreadt exists".to_string());
-        }
+    fn remove_binding(&mut self, command: &String, binding: Binding) {
+        self.command_to_bindings
+            .get_mut(command)
+            .unwrap()
+            .retain(|b| *b != binding);
+        self.binding_to_command
+            .get_mut(&(binding.controller, binding.button))
+            .unwrap()
+            .retain(|(c, when): &(String, RunWhen)| !(command == c && *when == binding.when));
     }
 
     fn is_used(&self, command: &String) -> bool {
@@ -287,38 +239,11 @@ impl BindingsMap {
             .get(command)
             .map_or(false, |l| !l.is_empty())
     }
-}
 
-#[derive(Debug)]
-struct Views {
-    save_file: PathBuf,
-
-    url: Option<String>,
-
-    commands: BTreeSet<String>,
-
-    bindings: BindingsMap,
-
-    manage_tab: managetab::ManageTab,
-
-    from_commands: from_commands::FromCommands,
-    from_bindings: from_binding::FromBindings,
-
-    error: Vec<String>,
-}
-
-impl Default for Views {
-    fn default() -> Self {
-        Self {
-            save_file: Default::default(),
-            url: Default::default(),
-            commands: Default::default(),
-            manage_tab: Default::default(),
-            from_commands: Default::default(),
-            from_bindings: Default::default(),
-            error: Default::default(),
-            bindings: Default::default(),
-        }
+    fn has_binding(&self, command: &String, binding: Binding) -> bool {
+        self.command_to_bindings
+            .get(command)
+            .map_or(false, |bindings| bindings.contains(&binding))
     }
 }
 
@@ -351,90 +276,49 @@ impl Display for ProgramError {
 
 impl Error for ProgramError {}
 
-impl Views {
-    fn write_out(&self) -> Result<()> {
-        // let mut dir = self.directory.clone();
+struct Tabs<'a> {
+    view: &'a mut Views,
+    toasts: &'a mut Toasts,
+}
 
-        create_dir_all(self.save_file.parent().unwrap())?;
-
-        let mut file =
-            File::create(&self.save_file).with_context(|| "failed to create file to save to")?;
-
-        file.write_all(
-            serde_json::to_string(&self.to_bindings())
-                .unwrap()
-                .as_bytes(),
-        )
-        .with_context(|| "failed to save to disk")?;
-
-        Ok(())
-    }
-
-    fn to_bindings(&self) -> Bindings {
-        Bindings {
-            url: Cow::Borrowed(&self.url),
-            commands: Cow::Borrowed(&self.commands),
-            command_to_bindings: Cow::Borrowed(&self.bindings.command_to_bindings),
-        }
-    }
-
+impl<'a> Tabs<'a> {
     fn add_error(&mut self, error: String) {
-        self.error.push(error);
-    }
-
-    fn from_bindings(bindings: Bindings, path: PathBuf) -> Self {
-        let mut binding_to_command = BTreeMap::new();
-
-        for (command, bindings) in bindings.command_to_bindings.iter() {
-            for b in bindings {
-                binding_to_command
-                    .entry((b.controller, b.button))
-                    .or_insert(Vec::new())
-                    .push((command.clone(), b.when));
-            }
-        }
-
-        Self {
-            save_file: path,
-            url: bindings.url.into_owned(),
-            commands: bindings.commands.into_owned(),
-            bindings: BindingsMap {
-                command_to_bindings: bindings.command_to_bindings.into_owned(),
-                binding_to_command,
-            },
+        self.toasts.add(Toast {
+            kind: egui_toast::ToastKind::Error,
+            text: error.into(),
             ..Default::default()
-        }
+        });
+    }
+}
+
+#[derive(Debug)]
+struct Tab {
+    tab: Box<dyn Compenent<OutputEvents = GlobalEvents, Environment = Views>>,
+    name: &'static str,
+}
+
+impl<'a> TabViewer for Tabs<'a> {
+    type Tab = Tab;
+
+    fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
+        tab.name.into()
     }
 
-    fn from_directory(mut path: PathBuf) -> Result<Self> {
-        if !path.is_dir() {
-            return Err(ProgramError::NotDirectory(path))?;
-            // return format!("{} is not a directory", path.display())?;
-        }
+    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        match self.view.display_tab(ui, tab, &mut self.toasts) {
+            Ok(_) => {}
+            Err(err) => {
+                self.add_error(err.to_string());
+            }
+        };
+    }
 
-        path.push("src");
-        path.push("main");
-        path.push("deploy");
-        path.push("bindings.json");
+    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
+        false
+    }
 
-        if path.is_dir() {
-            // return is here just to convice the borrow checker that this path never
-            // continues executing the function
-            return Err(ProgramError::ExistingDirectoryAt(path))?;
-        }
-
-        if !path.exists() {
-            return Ok(Self {
-                save_file: path,
-                ..Default::default()
-            });
-        }
-
-        let file = read_to_string(&path)?;
-
-        let bindings: Bindings = serde_json::from_str(&file)?;
-
-        Ok(Self::from_bindings(bindings, path))
+    fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {
+        false
     }
 }
 

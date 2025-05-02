@@ -1,6 +1,6 @@
 use egui::{ScrollArea, Ui};
 
-use crate::Views;
+use crate::{component::Compenent, global_state::GlobalEvents, Views};
 
 #[derive(Debug)]
 pub(crate) struct ManageTab {
@@ -15,50 +15,45 @@ impl Default for ManageTab {
     }
 }
 
-impl ManageTab {
-    pub fn ui(
-        ui: &mut Ui,
-        view: &mut Views,
-    ) -> bool {
+impl Compenent for ManageTab {
+    type OutputEvents = GlobalEvents;
+
+    type Environment = Views;
+
+    fn render(&mut self, ui: &mut Ui, env: &Self::Environment, output: &mut crate::component::EventStream<Self::OutputEvents>) {
         ScrollArea::vertical()
-            .show(ui, |ui| {
-                // TODO ADD RENAME FUNCTIONALITY
+        .show(ui, |ui| {
+            // TODO ADD RENAME FUNCTIONALITY
 
-                let mut update = false;
-                let adding = &mut view.manage_tab.adding;
+            let mut update = false;
+            let adding = &mut self.adding;
 
+            ui.horizontal(|ui| {
+                ui.text_edit_singleline(adding);
+
+                if ui.button("add").clicked() && !adding.is_empty() {
+                    output.add_event(GlobalEvents::AddCommand(adding.clone()));
+                    *adding = "".to_string();
+                    update = true;
+                }
+            });
+
+            for command in &env.commands {
                 ui.horizontal(|ui| {
-                    ui.text_edit_singleline(adding);
+                    ui.label(command);
+                    if ui.button("X").clicked() {
+                        let valid_remove = !env
+                            .bindings.is_used(&command);
 
-                    if ui.button("add").clicked() && !adding.is_empty() {
-                        view.commands.insert(adding.clone());
-                        *adding = "".to_string();
-                        update = true;
+                        if valid_remove {
+                            output.add_event(GlobalEvents::RemoveCommand(command.clone()));
+                        } else {
+                            output.add_event(GlobalEvents::DisplayError("can't delete a command that is still used".to_string()));
+                        }
                     }
                 });
-
-                view.commands.retain(|command| {
-                    ui.horizontal(|ui| {
-                        ui.label(command);
-                        if ui.button("X").clicked() {
-                            let valid_remove = !view
-                                .bindings.is_used(command);
-
-                            if valid_remove {
-                                update = true;
-                                false
-                            } else {
-                                view.error.push("can't delete a command that is still used".to_string());
-                                true
-                            }
-                        } else {
-                            true
-                        }
-                    }).inner
-                });
-
-                update
-            })
-            .inner
+            }
+        });
     }
 }
+

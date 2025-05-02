@@ -1,11 +1,15 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeSet;
 
 use egui::{
     ahash::{HashMap, HashMapExt},
     popup_below_widget, ComboBox, DragValue, ScrollArea, Ui,
 };
 
-use crate::{Binding, Button, RunWhen, Views};
+use crate::{
+    component::{Compenent, EventStream},
+    global_state::GlobalEvents,
+    Binding, Button, RunWhen, Views,
+};
 
 #[derive(Debug)]
 pub struct EditingStates {
@@ -23,7 +27,7 @@ impl Default for EditingStates {
 }
 
 #[derive(Debug)]
-struct SingleCash {
+pub struct SingleCash {
     last_key: Option<String>,
     value: Vec<String>,
     read: bool,
@@ -63,11 +67,11 @@ impl SingleCash {
 
 #[derive(Debug)]
 pub struct FromBindings {
-    editing_states: HashMap<(u8, Button), EditingStates>,
-    button: u8,
-    controller: u8,
-    bindings: BTreeSet<(u8, Button)>,
-    filtered_commands: SingleCash,
+    pub editing_states: HashMap<(u8, Button), EditingStates>,
+    pub button: u8,
+    pub controller: u8,
+    pub bindings: BTreeSet<(u8, Button)>,
+    pub filtered_commands: SingleCash,
 }
 
 impl Default for FromBindings {
@@ -82,59 +86,70 @@ impl Default for FromBindings {
     }
 }
 
-impl FromBindings {
-    // I really hate this function but I don't know how to make it not awful
+impl Compenent for FromBindings {
+    type OutputEvents = GlobalEvents;
 
-    pub fn ui(ui: &mut Ui, view: &mut Views) -> bool {
-        let mut update = false;
+    type Environment = Views;
 
+    fn render(
+        &mut self,
+        ui: &mut Ui,
+        env: &Self::Environment,
+        output: &mut crate::component::EventStream<Self::OutputEvents>,
+    ) {
         ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label("controller");
-                ui.add(DragValue::new(&mut view.from_bindings.controller));
+                ui.add(DragValue::new(&mut self.controller));
                 ui.label("button");
-                ui.add(DragValue::new(&mut view.from_bindings.button));
+                ui.add(DragValue::new(&mut self.button));
                 if ui.button("add button").clicked() {
-                    view.from_bindings.bindings.insert((
-                        view.from_bindings.controller,
-                        Button::Button(view.from_bindings.button),
-                    ));
+                    self.bindings
+                        .insert((self.controller, Button::Button(self.button)));
                 }
             });
 
-            view.from_bindings
-                .bindings
-                .retain(|b| !view.bindings.binding_to_command.contains_key(b));
+            self.bindings
+                .retain(|b| !env.bindings.binding_to_command.contains_key(b));
 
-            for (controller, button) in &view.from_bindings.bindings {
+            for (controller, button) in &self.bindings {
                 ui.horizontal(|ui| {
                     ui.label(format!("{controller}:{button}"));
-                    let mut vec = Vec::new();
+
                     Self::add_widgets(
+                        &mut self.filtered_commands,
                         ui,
-                        &mut view.bindings.command_to_bindings,
-                        &mut vec,
-                        &view.commands,
-                        view.from_bindings
-                            .editing_states
+                        env,
+                        output,
+                        self.editing_states
                             .entry((*controller, *button))
                             .or_insert(EditingStates::default()),
                         (*controller, *button),
-                        &mut view.from_bindings.filtered_commands,
-                        &mut view.error,
                     );
 
-                    if !vec.is_empty() {
-                        view.bindings.binding_to_command.insert((*controller, *button), vec);
-                    }
+                    // Self::add_widgets(
+                    //     ui,
+                    //     &mut view.bindings.command_to_bindings,
+                    //     &mut vec,
+                    //     &view.commands,
+                    //     view.from_bindings
+                    //
+                    //     (*controller, *button),
+                    //     &mut view.from_bindings.filtered_commands,
+                    //     &mut view.error,
+                    // );
+
+                    // if !vec.is_empty() {
+                    //     view.bindings.binding_to_command.insert((*controller, *button), vec);
+                    // }
                 });
             }
 
-            for ((controller, button), commands) in &mut view.bindings.binding_to_command {
+            for ((controller, button), commands) in &env.bindings.binding_to_command {
                 ui.horizontal(|ui| {
                     ui.label(format!("{controller}:{button}"));
 
-                    commands.retain(|(command, when)| {
+                    for (command, when) in commands {
                         ui.label(format!("{command}:{when}"));
 
                         let keep = !ui.button("X").clicked();
@@ -146,48 +161,42 @@ impl FromBindings {
                         };
 
                         if !keep {
-                            view.bindings
-                                .command_to_bindings
-                                .get_mut(command)
-                                .unwrap()
-                                .retain(|binding| !(*binding == b));
+                            output.add_event(GlobalEvents::RemoveBinding(
+                                b,
+                                command.clone(),
+                            ));
                         }
+                    }
 
-                        keep
-                    });
-
-                    update |= Self::add_widgets(
+                    Self::add_widgets(
+                        &mut self.filtered_commands,
                         ui,
-                        &mut view.bindings.command_to_bindings,
-                        commands,
-                        &view.commands,
-                        view.from_bindings
-                            .editing_states
+                        env,
+                        output,
+                        self.editing_states
                             .entry((*controller, *button))
                             .or_insert(EditingStates::default()),
                         (*controller, *button),
-                        &mut view.from_bindings.filtered_commands,
-                        &mut view.error,
                     );
                 });
             }
         });
 
-        view.from_bindings.filtered_commands.update();
-
-        update
+        self.filtered_commands.update();
     }
+}
+
+impl FromBindings {
+    // I really hate this function but I don't know how to make it not awful
 
     fn add_widgets(
+        cache: &mut SingleCash,
         ui: &mut Ui,
-        c2b: &mut BTreeMap<String, Vec<Binding>>,
-        commands: &mut Vec<(String, RunWhen)>,
-        allowed: &BTreeSet<String>,
+        env: &Views,
+        output: &mut EventStream<GlobalEvents>,
         state: &mut EditingStates,
         binding: (u8, Button),
-        cache: &mut SingleCash,
-        errors: &mut Vec<String>,
-    ) -> bool {
+    ) {
         ui.label("when");
         let selected = &mut state.when;
 
@@ -208,7 +217,7 @@ impl FromBindings {
             egui::PopupCloseBehavior::CloseOnClickOutside,
             |ui| {
                 for command in cache.get(&state.command, || {
-                    allowed
+                    env.commands
                         .iter()
                         .filter(|s| s.contains(&state.command))
                         .cloned()
@@ -238,9 +247,11 @@ impl FromBindings {
         });
 
         if ui.button("add").clicked() {
-            if !allowed.contains(&state.command) {
-                errors.push("not a valid command".to_string());
-                return false;
+            if !env.commands.contains(&state.command) {
+                output.add_event(GlobalEvents::DisplayError(
+                    "not a valid command".to_string(),
+                ));
+                return;
             }
 
             let binding = Binding {
@@ -249,23 +260,14 @@ impl FromBindings {
                 when: *selected,
             };
 
-            if c2b
-                .get(&state.command)
-                .map_or(false, |bindings| bindings.contains(&binding))
-            {
-                errors.push("binding already exists".to_string());
-                return false;
+            if env.bindings.has_binding(&state.command, binding) {
+                output.add_event(GlobalEvents::DisplayError(
+                    "binding already exists".to_string(),
+                ));
+                return;
             }
 
-            c2b.entry(state.command.clone())
-                .or_insert(Vec::new())
-                .push(binding);
-
-            commands.push((state.command.clone(), *selected));
-
-            true
-        } else {
-            false
+            output.add_event(GlobalEvents::AddBinding(binding, selected.to_string()));
         }
     }
 }
