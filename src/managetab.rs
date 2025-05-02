@@ -1,6 +1,6 @@
 use egui::{ScrollArea, Ui};
 
-use crate::{component::Compenent, global_state::GlobalEvents, Views};
+use crate::{component::Compenent, global_state::GlobalEvents, State};
 
 #[derive(Debug)]
 pub(crate) struct ManageTab {
@@ -18,11 +18,15 @@ impl Default for ManageTab {
 impl Compenent for ManageTab {
     type OutputEvents = GlobalEvents;
 
-    type Environment = Views;
+    type Environment = State;
 
-    fn render(&mut self, ui: &mut Ui, env: &Self::Environment, output: &mut crate::component::EventStream<Self::OutputEvents>) {
-        ScrollArea::vertical()
-        .show(ui, |ui| {
+    fn render(
+        &mut self,
+        ui: &mut Ui,
+        env: &Self::Environment,
+        output: &mut crate::component::EventStream<Self::OutputEvents>,
+    ) {
+        ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD RENAME FUNCTIONALITY
 
             let mut update = false;
@@ -42,13 +46,14 @@ impl Compenent for ManageTab {
                 ui.horizontal(|ui| {
                     ui.label(command);
                     if ui.button("X").clicked() {
-                        let valid_remove = !env
-                            .bindings.is_used(&command);
+                        let valid_remove = !env.bindings.is_used(command);
 
                         if valid_remove {
                             output.add_event(GlobalEvents::RemoveCommand(command.clone()));
                         } else {
-                            output.add_event(GlobalEvents::DisplayError("can't delete a command that is still used".to_string()));
+                            output.add_event(GlobalEvents::DisplayError(
+                                "can't delete a command that is still used".to_string(),
+                            ));
                         }
                     }
                 });
@@ -56,4 +61,3 @@ impl Compenent for ManageTab {
         });
     }
 }
-

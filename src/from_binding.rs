@@ -1,14 +1,12 @@
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
-use egui::{
-    ahash::{HashMap, HashMapExt},
-    popup_below_widget, ComboBox, DragValue, ScrollArea, Ui,
-};
+use egui::{popup_below_widget, DragValue, ScrollArea, Ui};
 
 use crate::{
+    bindings::{Binding, Button, RunWhen},
     component::{Compenent, EventStream},
     global_state::GlobalEvents,
-    bindings::{Binding, Button, RunWhen}, Views,
+    State,
 };
 
 #[derive(Debug)]
@@ -26,21 +24,11 @@ impl Default for EditingStates {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct SingleCash {
     last_key: Option<String>,
     value: Vec<String>,
     read: bool,
-}
-
-impl Default for SingleCash {
-    fn default() -> Self {
-        Self {
-            last_key: Default::default(),
-            value: Default::default(),
-            read: Default::default(),
-        }
-    }
 }
 
 impl SingleCash {
@@ -49,7 +37,7 @@ impl SingleCash {
         F: FnOnce() -> Vec<String>,
     {
         self.read = true;
-        if !(self.last_key.as_ref().map(|f| f.as_str()) == Some(&key)) {
+        if self.last_key.as_deref() != Some(key) {
             self.last_key = Some(key.to_string());
             self.value = f();
         }
@@ -65,7 +53,7 @@ impl SingleCash {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FromBindings {
     pub editing_states: HashMap<(u8, Button), EditingStates>,
     pub button: u8,
@@ -74,22 +62,11 @@ pub struct FromBindings {
     pub filtered_commands: SingleCash,
 }
 
-impl Default for FromBindings {
-    fn default() -> Self {
-        Self {
-            editing_states: HashMap::new(),
-            button: 0,
-            controller: 0,
-            bindings: BTreeSet::new(),
-            filtered_commands: Default::default(),
-        }
-    }
-}
 
 impl Compenent for FromBindings {
     type OutputEvents = GlobalEvents;
 
-    type Environment = Views;
+    type Environment = State;
 
     fn render(
         &mut self,
@@ -123,7 +100,7 @@ impl Compenent for FromBindings {
                         output,
                         self.editing_states
                             .entry((*controller, *button))
-                            .or_insert(EditingStates::default()),
+                            .or_default(),
                         (*controller, *button),
                     );
                 });
@@ -138,15 +115,13 @@ impl Compenent for FromBindings {
 
                         let keep = !ui.button("X").clicked();
 
-                        let b = Binding {
-                            controller: *controller,
-                            button: *button,
-                            when: *when,
-                        };
-
                         if !keep {
                             output.add_event(GlobalEvents::RemoveBinding(
-                                b,
+                                Binding {
+                                    controller: *controller,
+                                    button: *button,
+                                    when: *when,
+                                },
                                 command.clone(),
                             ));
                         }
@@ -159,7 +134,7 @@ impl Compenent for FromBindings {
                         output,
                         self.editing_states
                             .entry((*controller, *button))
-                            .or_insert(EditingStates::default()),
+                            .or_default(),
                         (*controller, *button),
                     );
                 });
@@ -174,13 +149,13 @@ impl FromBindings {
     fn add_widgets(
         cache: &mut SingleCash,
         ui: &mut Ui,
-        env: &Views,
+        env: &State,
         output: &mut EventStream<GlobalEvents>,
         state: &mut EditingStates,
         binding: (u8, Button),
     ) {
         ui.label("when");
-        let selected = &mut state.when;
+        let when_run = &mut state.when;
 
         ui.label("command");
 
@@ -213,20 +188,7 @@ impl FromBindings {
             },
         );
 
-        ui.push_id(binding, |ui| {
-            ComboBox::from_label("")
-                .selected_text(format!("{}", selected))
-                .show_ui(ui, |ui| {
-                    for i in [
-                        RunWhen::OnTrue,
-                        RunWhen::OnFalse,
-                        RunWhen::WhileTrue,
-                        RunWhen::WhileFalse,
-                    ] {
-                        ui.selectable_value(selected, i, i.get_str());
-                    }
-                });
-        });
+        when_run.selection_ui(ui, id);
 
         if ui.button("add").clicked() {
             if !env.commands.contains(&state.command) {
@@ -239,7 +201,7 @@ impl FromBindings {
             let binding = Binding {
                 controller: binding.0,
                 button: binding.1,
-                when: *selected,
+                when: *when_run,
             };
 
             if env.bindings.has_binding(&state.command, binding) {
@@ -249,7 +211,7 @@ impl FromBindings {
                 return;
             }
 
-            output.add_event(GlobalEvents::AddBinding(binding, selected.to_string()));
+            output.add_event(GlobalEvents::AddBinding(binding, when_run.to_string()));
         }
     }
 }

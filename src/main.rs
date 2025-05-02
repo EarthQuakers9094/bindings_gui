@@ -3,24 +3,23 @@ use component::Compenent;
 use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_toast::{Toast, Toasts};
-use global_state::{GlobalEvents, Views};
+use global_state::{GlobalEvents, State};
 use std::error::Error;
 use std::fmt::Display;
 use std::path::PathBuf;
 
+mod bindings;
 mod component;
 mod from_binding;
 mod from_commands;
 mod global_state;
 mod managetab;
-mod bindings;
-
 
 #[derive(Debug)]
 enum App {
     Initial { error: Option<String> },
 
-    Running { views: Views, tree: DockState<Tab> },
+    Running { views: State, tree: DockState<Tab> },
 }
 
 impl Default for App {
@@ -30,7 +29,7 @@ impl Default for App {
 }
 
 impl App {
-    fn from_views(view: Views) -> Self {
+    fn from_views(view: State) -> Self {
         Self::Running {
             views: view,
             tree: DockState::new(vec![
@@ -57,10 +56,7 @@ impl App {
     }
 
     fn initial(&self) -> bool {
-        match self {
-            Self::Initial { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::Initial { .. })
     }
 }
 
@@ -73,7 +69,7 @@ impl eframe::App for App {
                 Self::Initial { error } => {
                     if ui.button("Open Project Directory").clicked() {
                         if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                            match Views::from_directory(path) {
+                            match State::from_directory(path) {
                                 Ok(s) => {
                                     *self = Self::from_views(s);
                                     return;
@@ -140,11 +136,11 @@ impl Display for ProgramError {
 impl Error for ProgramError {}
 
 struct Tabs<'a> {
-    view: &'a mut Views,
+    view: &'a mut State,
     toasts: &'a mut Toasts,
 }
 
-impl<'a> Tabs<'a> {
+impl Tabs<'_> {
     fn add_error(&mut self, error: String) {
         self.toasts.add(Toast {
             kind: egui_toast::ToastKind::Error,
@@ -156,11 +152,11 @@ impl<'a> Tabs<'a> {
 
 #[derive(Debug)]
 struct Tab {
-    tab: Box<dyn Compenent<OutputEvents = GlobalEvents, Environment = Views>>,
+    tab: Box<dyn Compenent<OutputEvents = GlobalEvents, Environment = State>>,
     name: &'static str,
 }
 
-impl<'a> TabViewer for Tabs<'a> {
+impl TabViewer for Tabs<'_> {
     type Tab = Tab;
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
@@ -168,7 +164,7 @@ impl<'a> TabViewer for Tabs<'a> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        match self.view.display_tab(ui, tab, &mut self.toasts) {
+        match self.view.display_tab(ui, tab, self.toasts) {
             Ok(_) => {}
             Err(err) => {
                 self.add_error(err.to_string());

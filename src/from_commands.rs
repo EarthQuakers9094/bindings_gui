@@ -1,13 +1,12 @@
-use egui::{
-    ahash::{HashMap, HashMapExt},
-    ComboBox, ScrollArea, Ui,
-};
+use egui::{ScrollArea, Ui};
+
+use std::collections::HashMap;
 
 use crate::{
     bindings::{Binding, Button, RunWhen},
     component::Compenent,
     global_state::GlobalEvents,
-    Views,
+    State,
 };
 
 #[derive(Debug)]
@@ -27,23 +26,16 @@ impl Default for BindingEditingState {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FromCommands {
     pub editing_states: HashMap<String, BindingEditingState>,
 }
 
-impl Default for FromCommands {
-    fn default() -> Self {
-        Self {
-            editing_states: HashMap::new(),
-        }
-    }
-}
 
 impl Compenent for FromCommands {
     type OutputEvents = GlobalEvents;
 
-    type Environment = Views;
+    type Environment = State;
 
     fn render(
         &mut self,
@@ -72,10 +64,7 @@ impl Compenent for FromCommands {
                         }
                     }
 
-                    let edit_state = self
-                        .editing_states
-                        .entry(command.clone())
-                        .or_insert(BindingEditingState::default());
+                    let edit_state = self.editing_states.entry(command.clone()).or_default();
 
                     ui.label("controller");
 
@@ -85,22 +74,9 @@ impl Compenent for FromCommands {
 
                     ui.add(egui::DragValue::new(&mut edit_state.button));
 
-                    let selected = &mut edit_state.when;
+                    let run_when = &mut edit_state.when;
 
-                    ui.push_id(command, |ui| {
-                        ComboBox::from_label("")
-                            .selected_text(format!("{}", selected))
-                            .show_ui(ui, |ui| {
-                                for i in [
-                                    RunWhen::OnTrue,
-                                    RunWhen::OnFalse,
-                                    RunWhen::WhileTrue,
-                                    RunWhen::WhileFalse,
-                                ] {
-                                    ui.selectable_value(selected, i, i.get_str());
-                                }
-                            });
-                    });
+                    run_when.selection_ui(ui, command);
 
                     let binding = Binding {
                         controller: edit_state.controller,

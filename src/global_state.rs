@@ -11,7 +11,8 @@ use egui::Ui;
 use egui_toast::{Toast, Toasts};
 
 use crate::{
-    bindings::Binding, bindings::BindingsMap, component::EventStream, bindings::Bindings, ProgramError, Tab,
+    bindings::Binding, bindings::Bindings, bindings::BindingsMap, component::EventStream,
+    ProgramError, Tab,
 };
 
 pub enum GlobalEvents {
@@ -22,15 +23,15 @@ pub enum GlobalEvents {
     DisplayError(String),
 }
 
-#[derive(Debug)]
-pub struct Views {
+#[derive(Debug, Default)]
+pub struct State {
     pub save_file: PathBuf,
     pub url: Option<String>,
     pub commands: BTreeSet<String>,
     pub bindings: BindingsMap,
 }
 
-impl Views {
+impl State {
     pub fn display_tab(&mut self, ui: &mut Ui, tab: &mut Tab, toasts: &mut Toasts) -> Result<()> {
         let mut events = EventStream::new();
 
@@ -124,7 +125,6 @@ impl Views {
                 command_to_bindings: bindings.command_to_bindings.into_owned(),
                 binding_to_command,
             },
-            ..Default::default()
         }
     }
 
@@ -157,16 +157,5 @@ impl Views {
         let bindings: Bindings = serde_json::from_str(&file)?;
 
         Ok(Self::from_bindings(bindings, path))
-    }
-}
-
-impl Default for Views {
-    fn default() -> Self {
-        Self {
-            save_file: Default::default(),
-            url: Default::default(),
-            commands: Default::default(),
-            bindings: Default::default(),
-        }
     }
 }

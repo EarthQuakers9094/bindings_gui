@@ -1,5 +1,10 @@
-use std::{borrow::Cow, collections::{BTreeMap, BTreeSet}, fmt::Display};
+use std::{
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+};
 
+use egui::{ComboBox, Ui};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
@@ -45,6 +50,28 @@ impl RunWhen {
             RunWhen::WhileFalse => "while false",
         }
     }
+
+    pub fn enumerate() -> impl Iterator<Item = RunWhen> {
+        [
+            RunWhen::OnTrue,
+            RunWhen::OnFalse,
+            RunWhen::WhileTrue,
+            RunWhen::WhileFalse,
+        ]
+        .into_iter()
+    }
+
+    pub fn selection_ui(&mut self, ui: &mut Ui, id: impl std::hash::Hash) {
+        ui.push_id(id, |ui| {
+            ComboBox::from_label("")
+                .selected_text(format!("{}", self))
+                .show_ui(ui, |ui| {
+                    for i in RunWhen::enumerate() {
+                        ui.selectable_value(self, i, i.get_str());
+                    }
+                });
+        });
+    }
 }
 
 impl Display for RunWhen {
@@ -66,19 +93,10 @@ impl Display for Binding {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct BindingsMap {
     pub command_to_bindings: BTreeMap<String, Vec<Binding>>,
     pub binding_to_command: BTreeMap<(u8, Button), Vec<(String, RunWhen)>>,
-}
-
-impl Default for BindingsMap {
-    fn default() -> Self {
-        Self {
-            command_to_bindings: Default::default(),
-            binding_to_command: Default::default(),
-        }
-    }
 }
 
 impl BindingsMap {
@@ -93,12 +111,12 @@ impl BindingsMap {
         } else {
             self.command_to_bindings
                 .entry(command.clone())
-                .or_insert(Vec::new())
+                .or_default()
                 .push(binding);
 
             self.binding_to_command
                 .entry((binding.controller, binding.button))
-                .or_insert(Vec::new())
+                .or_default()
                 .push((command.clone(), binding.when));
 
             true
@@ -119,13 +137,13 @@ impl BindingsMap {
     pub(crate) fn is_used(&self, command: &String) -> bool {
         self.command_to_bindings
             .get(command)
-            .map_or(false, |l| !l.is_empty())
+            .is_some_and(|l| !l.is_empty())
     }
 
-    pub(crate)  fn has_binding(&self, command: &String, binding: Binding) -> bool {
+    pub(crate) fn has_binding(&self, command: &String, binding: Binding) -> bool {
         self.command_to_bindings
             .get(command)
-            .map_or(false, |bindings| bindings.contains(&binding))
+            .is_some_and(|bindings| bindings.contains(&binding))
     }
 }
 
