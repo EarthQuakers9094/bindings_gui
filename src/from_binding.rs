@@ -8,7 +8,7 @@ use egui::{
 use crate::{
     component::{Compenent, EventStream},
     global_state::GlobalEvents,
-    Binding, Button, RunWhen, Views,
+    bindings::{Binding, Button, RunWhen}, Views,
 };
 
 #[derive(Debug)]
@@ -126,22 +126,6 @@ impl Compenent for FromBindings {
                             .or_insert(EditingStates::default()),
                         (*controller, *button),
                     );
-
-                    // Self::add_widgets(
-                    //     ui,
-                    //     &mut view.bindings.command_to_bindings,
-                    //     &mut vec,
-                    //     &view.commands,
-                    //     view.from_bindings
-                    //
-                    //     (*controller, *button),
-                    //     &mut view.from_bindings.filtered_commands,
-                    //     &mut view.error,
-                    // );
-
-                    // if !vec.is_empty() {
-                    //     view.bindings.binding_to_command.insert((*controller, *button), vec);
-                    // }
                 });
             }
 
@@ -187,8 +171,6 @@ impl Compenent for FromBindings {
 }
 
 impl FromBindings {
-    // I really hate this function but I don't know how to make it not awful
-
     fn add_widgets(
         cache: &mut SingleCash,
         ui: &mut Ui,

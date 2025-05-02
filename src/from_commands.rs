@@ -3,7 +3,12 @@ use egui::{
     ComboBox, ScrollArea, Ui,
 };
 
-use crate::{component::Compenent, global_state::GlobalEvents, Binding, Button, RunWhen, Views};
+use crate::{
+    bindings::{Binding, Button, RunWhen},
+    component::Compenent,
+    global_state::GlobalEvents,
+    Views,
+};
 
 #[derive(Debug)]
 pub struct BindingEditingState {
@@ -40,7 +45,12 @@ impl Compenent for FromCommands {
 
     type Environment = Views;
 
-    fn render(&mut self, ui: &mut Ui, env: &Self::Environment, output: &mut crate::component::EventStream<Self::OutputEvents>) {
+    fn render(
+        &mut self,
+        ui: &mut Ui,
+        env: &Self::Environment,
+        output: &mut crate::component::EventStream<Self::OutputEvents>,
+    ) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
 
@@ -48,11 +58,17 @@ impl Compenent for FromCommands {
                 ui.horizontal(|ui| {
                     ui.label(command);
 
-                    for binding in env.bindings.command_to_bindings.get(command).unwrap_or(&Vec::new()) {
+                    for binding in env
+                        .bindings
+                        .command_to_bindings
+                        .get(command)
+                        .unwrap_or(&Vec::new())
+                    {
                         ui.label(binding.to_string());
 
                         if !ui.button("X").clicked() {
-                            output.add_event(GlobalEvents::RemoveBinding(*binding, command.clone()));
+                            output
+                                .add_event(GlobalEvents::RemoveBinding(*binding, command.clone()));
                         }
                     }
 

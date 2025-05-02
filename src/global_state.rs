@@ -11,7 +11,7 @@ use egui::Ui;
 use egui_toast::{Toast, Toasts};
 
 use crate::{
-    component::EventStream, Binding, Bindings, BindingsMap, ProgramError, Tab,
+    bindings::Binding, bindings::BindingsMap, component::EventStream, bindings::Bindings, ProgramError, Tab,
 };
 
 pub enum GlobalEvents {
@@ -28,9 +28,6 @@ pub struct Views {
     pub url: Option<String>,
     pub commands: BTreeSet<String>,
     pub bindings: BindingsMap,
-    // pub manage_tab: managetab::ManageTab,
-    // pub from_commands: from_commands::FromCommands,
-    // pub from_bindings: from_binding::FromBindings,
 }
 
 impl Views {
