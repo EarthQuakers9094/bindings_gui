@@ -2,8 +2,6 @@ use anyhow::{Context, Result};
 use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_toast::{Toast, Toasts};
-use from_binding::FromBindings;
-use from_commands::FromCommands;
 use managetab::ManageTab;
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -11,7 +9,6 @@ use std::error::Error;
 use std::fmt::Display;
 use std::fs::{create_dir_all, read_to_string, File};
 use std::io::Write;
-use std::ops::Deref;
 use std::path::PathBuf;
 
 mod from_binding;
@@ -62,16 +59,6 @@ impl RunWhen {
             RunWhen::WhileTrue => "while true",
             RunWhen::WhileFalse => "while false",
         }
-    }
-
-    fn iter() -> impl Iterator<Item = Self> {
-        [
-            RunWhen::OnTrue,
-            RunWhen::OnFalse,
-            RunWhen::WhileTrue,
-            RunWhen::WhileFalse,
-        ]
-        .into_iter()
     }
 }
 
@@ -299,21 +286,6 @@ impl BindingsMap {
         self.command_to_bindings
             .get(command)
             .map_or(false, |l| !l.is_empty())
-    }
-
-    fn remove_from_bindings(&mut self, command: &String, binding: Binding) {
-        if let Some(a) = self
-            .binding_to_command
-            .get_mut(&(binding.controller, binding.button))
-        {
-            a.retain(|(c, when)| !(command == c && *when == binding.when));
-        }
-    }
-
-    fn remove_from_commands(&mut self, command: String, binding: Binding) {
-        if let Some(bindings) = self.command_to_bindings.get_mut(&command) {
-            bindings.retain(|b| *b != binding);
-        }
     }
 }
 

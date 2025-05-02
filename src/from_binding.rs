@@ -1,12 +1,8 @@
-use std::{
-    arch::x86_64,
-    collections::{BTreeMap, BTreeSet},
-};
+use std::collections::{BTreeMap, BTreeSet};
 
 use egui::{
     ahash::{HashMap, HashMapExt},
-    cache::FrameCache,
-    popup_below_widget, ComboBox, DragValue, Label, ScrollArea, Sense, Slider, Ui,
+    popup_below_widget, ComboBox, DragValue, ScrollArea, Ui,
 };
 
 use crate::{Binding, Button, RunWhen, Views};
@@ -87,6 +83,8 @@ impl Default for FromBindings {
 }
 
 impl FromBindings {
+    // I really hate this function but I don't know how to make it not awful
+
     pub fn ui(ui: &mut Ui, view: &mut Views) -> bool {
         let mut update = false;
 
