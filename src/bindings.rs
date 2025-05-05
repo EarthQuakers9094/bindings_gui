@@ -8,16 +8,22 @@ use egui::{ComboBox, Ui};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
-pub enum Button {
-    Button(u8),
-    Pov(i16),
+pub enum ButtonLocation {
+    Button,
+    Pov,
+}
+
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
+pub struct Button {
+    pub(crate) button: i16,
+    pub(crate) location: ButtonLocation
 }
 
 impl Display for Button {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Button::Button(b) => b.fmt(f),
-            Button::Pov(pov) => match pov {
+        match self.location {
+            ButtonLocation::Button => self.button.fmt(f),
+            ButtonLocation::Pov => match self.button {
                 0 => write!(f, "up"),
                 45 => write!(f, "up left"),
                 90 => write!(f, "right"),
@@ -145,6 +151,7 @@ impl BindingsMap {
             commands.retain(|(c, _)| c != command);
         }
     }
+
 
     pub(crate) fn bindings_for_command(
         &self,

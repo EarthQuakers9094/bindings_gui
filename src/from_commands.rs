@@ -73,7 +73,10 @@ impl Compenent for FromCommands {
 
                     let binding = Binding {
                         controller: edit_state.controller,
-                        button: Button::Button(edit_state.button),
+                        button: Button {
+                            button: edit_state.button as i16,
+                            location: crate::bindings::ButtonLocation::Button,
+                        },
                         when: edit_state.when,
                     };
 

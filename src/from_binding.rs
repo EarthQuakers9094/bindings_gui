@@ -80,8 +80,13 @@ impl Compenent for FromBindings {
                 ui.label("button");
                 ui.add(DragValue::new(&mut self.button));
                 if ui.button("add button").clicked() {
-                    self.bindings
-                        .insert((self.controller, Button::Button(self.button)));
+                    self.bindings.insert((
+                        self.controller,
+                        Button {
+                            button: self.button as i16,
+                            location: crate::bindings::ButtonLocation::Button,
+                        },
+                    ));
                 }
             });
 
