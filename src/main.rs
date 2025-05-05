@@ -186,77 +186,77 @@ impl TabViewer for Tabs<'_> {
     }
 }
 
-// fn main() -> Result<(), eframe::Error> {
-//     let native_options = eframe::NativeOptions {
-//         viewport: egui::ViewportBuilder::default().with_inner_size((400.0, 300.0)),
-//         ..eframe::NativeOptions::default()
-//     };
-
-//     eframe::run_native(
-//         "Bindings",
-//         native_options,
-//         Box::new(|_| Ok(Box::<App>::default())),
-//     )
-// }
-
-fn main() {
-    let command_prefix = "Hello World".to_string();
-
-    let mut command = 0;
-
-    let mut command_to_bindings = BTreeMap::new();
-    let mut commands = BTreeSet::new();
-
-    for controller in 0..5 {
-        for binding in 1..33 {
-            for when in RunWhen::enumerate() {
-                command_to_bindings.insert(
-                    format!("{command_prefix}{command}"),
-                    vec![Binding {
-                        controller: controller,
-                        button: Button {
-                            button: binding,
-                            location: bindings::ButtonLocation::Button,
-                        },
-                        during: when,
-                    }],
-                );
-
-                commands.insert(format!("{command_prefix}{command}"));
-
-
-                command += 1;
-            }
-        }
-        for pov in [-1, 0, 45, 90, 135, 180, 225, 270] {
-            for when in RunWhen::enumerate() {
-                command_to_bindings.insert(
-                    format!("{command_prefix}{command}"),
-                    vec![Binding {
-                        controller: controller,
-                        button: Button {
-                            button: pov,
-                            location: bindings::ButtonLocation::Pov,
-                        },
-                        during: when,
-                    }],
-                );
-
-                commands.insert(format!("{command_prefix}{command}"));
-
-                command += 1;
-            }
-        }
-    }
-
-    let savedata = SaveData {
-        url: Cow::Owned(None),
-        commands: Cow::Owned(commands),
-        command_to_bindings: Cow::Owned(command_to_bindings),
+fn main() -> Result<(), eframe::Error> {
+    let native_options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size((400.0, 300.0)),
+        ..eframe::NativeOptions::default()
     };
 
-    let mut file = File::create("worse_case_senario.json").unwrap();
-
-    file.write_all(serde_json::to_string(&savedata).unwrap().as_bytes())
-        .unwrap();
+    eframe::run_native(
+        "Bindings",
+        native_options,
+        Box::new(|_| Ok(Box::<App>::default())),
+    )
 }
+
+// fn main() {
+//     let command_prefix = "Hello World".to_string();
+
+//     let mut command = 0;
+
+//     let mut command_to_bindings = BTreeMap::new();
+//     let mut commands = BTreeSet::new();
+
+//     for controller in 0..5 {
+//         for binding in 1..33 {
+//             for when in RunWhen::enumerate() {
+//                 command_to_bindings.insert(
+//                     format!("{command_prefix}{command}"),
+//                     vec![Binding {
+//                         controller: controller,
+//                         button: Button {
+//                             button: binding,
+//                             location: bindings::ButtonLocation::Button,
+//                         },
+//                         during: when,
+//                     }],
+//                 );
+
+//                 commands.insert(format!("{command_prefix}{command}"));
+
+
+//                 command += 1;
+//             }
+//         }
+//         for pov in [-1, 0, 45, 90, 135, 180, 225, 270] {
+//             for when in RunWhen::enumerate() {
+//                 command_to_bindings.insert(
+//                     format!("{command_prefix}{command}"),
+//                     vec![Binding {
+//                         controller: controller,
+//                         button: Button {
+//                             button: pov,
+//                             location: bindings::ButtonLocation::Pov,
+//                         },
+//                         during: when,
+//                     }],
+//                 );
+
+//                 commands.insert(format!("{command_prefix}{command}"));
+
+//                 command += 1;
+//             }
+//         }
+//     }
+
+//     let savedata = SaveData {
+//         url: Cow::Owned(None),
+//         commands: Cow::Owned(commands),
+//         command_to_bindings: Cow::Owned(command_to_bindings),
+//     };
+
+//     let mut file = File::create("worse_case_senario.json").unwrap();
+
+//     file.write_all(serde_json::to_string(&savedata).unwrap().as_bytes())
+//         .unwrap();
+// }
