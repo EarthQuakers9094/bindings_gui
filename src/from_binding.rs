@@ -71,7 +71,7 @@ impl Compenent for FromBindings {
         &mut self,
         ui: &mut Ui,
         env: &Self::Environment,
-        output: &mut crate::component::EventStream<Self::OutputEvents>,
+        output: &crate::component::EventStream<Self::OutputEvents>,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -92,8 +92,8 @@ impl Compenent for FromBindings {
 
             self.bindings.retain(|b| !env.bindings.has_button(*b));
 
-            for (controller, button) in &self.bindings {
-                ui.horizontal(|ui| {
+            egui::Grid::new("from_bindings_grid").show(ui, |ui| {
+                for (controller, button) in &self.bindings {
                     ui.label(format!("{controller}:{button}"));
 
                     Self::add_widgets(
@@ -106,29 +106,31 @@ impl Compenent for FromBindings {
                             .or_default(),
                         (*controller, *button),
                     );
-                });
-            }
 
-            for ((controller, button), commands) in &env.bindings.binding_to_commands {
-                ui.horizontal(|ui| {
-                    ui.label(format!("{controller}:{button}"));
+                    ui.end_row();
+                }
 
-                    for (command, when) in commands {
-                        ui.label(format!("{command}:{when}"));
+                for ((controller, button), commands) in &env.bindings.binding_to_commands {
+                    ui.horizontal(|ui| {
+                        ui.label(format!("{controller}:{button}"));
 
-                        let keep = !ui.button("X").clicked();
+                        for (command, when) in commands {
+                            ui.label(format!("{command}:{when}"));
 
-                        if !keep {
-                            output.add_event(GlobalEvents::RemoveBinding(
-                                Binding {
-                                    controller: *controller,
-                                    button: *button,
-                                    during: *when,
-                                },
-                                command.clone(),
-                            ));
+                            let keep = !ui.button("X").clicked();
+
+                            if !keep {
+                                output.add_event(GlobalEvents::RemoveBinding(
+                                    Binding {
+                                        controller: *controller,
+                                        button: *button,
+                                        during: *when,
+                                    },
+                                    command.clone(),
+                                ));
+                            }
                         }
-                    }
+                    });
 
                     Self::add_widgets(
                         &mut self.filtered_commands,
@@ -140,8 +142,10 @@ impl Compenent for FromBindings {
                             .or_default(),
                         (*controller, *button),
                     );
-                });
-            }
+
+                    ui.end_row();
+                }
+            });
         });
 
         self.filtered_commands.update();
@@ -153,68 +157,70 @@ impl FromBindings {
         cache: &mut SingleCash,
         ui: &mut Ui,
         env: &State,
-        output: &mut EventStream<GlobalEvents>,
+        output: &EventStream<GlobalEvents>,
         state: &mut EditingStates,
         binding: (u8, Button),
     ) {
-        ui.label("when");
-        let when_run = &mut state.when;
+        ui.horizontal(|ui| {
+            ui.label("when");
+            let when_run = &mut state.when;
 
-        ui.label("command");
+            ui.label("command");
 
-        let edit = ui.text_edit_singleline(&mut state.command);
+            let edit = ui.text_edit_singleline(&mut state.command);
 
-        let id = ui.make_persistent_id("completion box command from bindings");
+            let id = ui.make_persistent_id("completion box command from bindings");
 
-        if edit.gained_focus() {
-            ui.memory_mut(|mem| mem.open_popup(id));
-        }
+            if edit.gained_focus() {
+                ui.memory_mut(|mem| mem.open_popup(id));
+            }
 
-        popup_below_widget(
-            ui,
-            id,
-            &edit,
-            egui::PopupCloseBehavior::CloseOnClickOutside,
-            |ui| {
-                for command in cache.get(&state.command, || {
-                    env.commands
-                        .iter()
-                        .filter(|s| s.contains(&state.command))
-                        .cloned()
-                        .collect::<Vec<_>>()
-                }) {
-                    if ui.button(command).clicked() {
-                        state.command = command.clone();
-                        ui.memory_mut(|mem| mem.close_popup());
+            popup_below_widget(
+                ui,
+                id,
+                &edit,
+                egui::PopupCloseBehavior::CloseOnClickOutside,
+                |ui| {
+                    for command in cache.get(&state.command, || {
+                        env.commands
+                            .iter()
+                            .filter(|s| s.contains(&state.command))
+                            .cloned()
+                            .collect::<Vec<_>>()
+                    }) {
+                        if ui.button(command).clicked() {
+                            state.command = command.clone();
+                            ui.memory_mut(|mem| mem.close_popup());
+                        }
                     }
+                },
+            );
+
+            when_run.selection_ui(ui, binding);
+
+            if ui.button("add").clicked() {
+                if !env.commands.contains(&state.command) {
+                    output.add_event(GlobalEvents::DisplayError(
+                        "not a valid command".to_string(),
+                    ));
+                    return;
                 }
-            },
-        );
 
-        when_run.selection_ui(ui, id);
+                let binding = Binding {
+                    controller: binding.0,
+                    button: binding.1,
+                    during: *when_run,
+                };
 
-        if ui.button("add").clicked() {
-            if !env.commands.contains(&state.command) {
-                output.add_event(GlobalEvents::DisplayError(
-                    "not a valid command".to_string(),
-                ));
-                return;
+                if env.bindings.has_binding(&state.command, binding) {
+                    output.add_event(GlobalEvents::DisplayError(
+                        "binding already exists".to_string(),
+                    ));
+                    return;
+                }
+
+                output.add_event(GlobalEvents::AddBinding(binding, state.command.clone()));
             }
-
-            let binding = Binding {
-                controller: binding.0,
-                button: binding.1,
-                during: *when_run,
-            };
-
-            if env.bindings.has_binding(&state.command, binding) {
-                output.add_event(GlobalEvents::DisplayError(
-                    "binding already exists".to_string(),
-                ));
-                return;
-            }
-
-            output.add_event(GlobalEvents::AddBinding(binding, state.command.clone()));
-        }
+        });
     }
 }

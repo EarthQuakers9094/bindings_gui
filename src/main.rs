@@ -1,16 +1,11 @@
 use anyhow::Result;
-use bindings::{Binding, Button, RunWhen, SaveData};
 use component::Compenent;
 use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_toast::{Toast, Toasts};
 use global_state::{GlobalEvents, State};
-use std::borrow::Cow;
-use std::collections::{BTreeMap, BTreeSet};
 use std::error::Error;
 use std::fmt::Display;
-use std::fs::File;
-use std::io::Write;
 use std::path::PathBuf;
 
 mod bindings;

@@ -15,6 +15,7 @@ use crate::{
     ProgramError, Tab,
 };
 
+#[derive(Debug, Clone)]
 pub enum GlobalEvents {
     AddBinding(Binding, String),
     RemoveBinding(Binding, String),

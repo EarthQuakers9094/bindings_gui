@@ -1,4 +1,4 @@
-use egui::{ScrollArea, Ui};
+use egui::{Grid, ScrollArea, Sides, Ui};
 
 use std::collections::HashMap;
 
@@ -40,50 +40,67 @@ impl Compenent for FromCommands {
         &mut self,
         ui: &mut Ui,
         env: &Self::Environment,
-        output: &mut crate::component::EventStream<Self::OutputEvents>,
+        output: &crate::component::EventStream<Self::OutputEvents>,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
 
+            // Grid::new("from_commands_grid").show(ui, |ui| {
+
+            // });
+
             for command in &env.commands {
-                ui.horizontal(|ui| {
-                    ui.label(command);
+                Sides::new().show(
+                    ui,
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(command);
 
-                    for binding in env.bindings.bindings_for_command(command) {
-                        ui.label(binding.to_string());
+                            for binding in env.bindings.bindings_for_command(command) {
+                                ui.label(binding.to_string());
 
-                        if ui.button("X").clicked() {
-                            output.add_event(GlobalEvents::RemoveBinding(binding, command.clone()));
-                        }
-                    }
+                                if ui.button("X").clicked() {
+                                    output.add_event(GlobalEvents::RemoveBinding(
+                                        binding,
+                                        command.clone(),
+                                    ));
+                                }
+                            }
+                        })
+                    },
+                    |ui| {
+                        ui.horizontal(|ui| {
+                            let edit_state =
+                                self.editing_states.entry(command.clone()).or_default();
 
-                    let edit_state = self.editing_states.entry(command.clone()).or_default();
+                            ui.label("controller");
 
-                    ui.label("controller");
+                            ui.add(egui::DragValue::new(&mut edit_state.controller));
 
-                    ui.add(egui::DragValue::new(&mut edit_state.controller));
+                            ui.label("button");
 
-                    ui.label("button");
+                            ui.add(egui::DragValue::new(&mut edit_state.button));
 
-                    ui.add(egui::DragValue::new(&mut edit_state.button));
+                            let run_when = &mut edit_state.when;
 
-                    let run_when = &mut edit_state.when;
+                            run_when.selection_ui(ui, command);
 
-                    run_when.selection_ui(ui, command);
+                            let binding = Binding {
+                                controller: edit_state.controller,
+                                button: Button {
+                                    button: edit_state.button as i16,
+                                    location: crate::bindings::ButtonLocation::Button,
+                                },
+                                during: edit_state.when,
+                            };
 
-                    let binding = Binding {
-                        controller: edit_state.controller,
-                        button: Button {
-                            button: edit_state.button as i16,
-                            location: crate::bindings::ButtonLocation::Button,
-                        },
-                        during: edit_state.when,
-                    };
-
-                    if ui.button("add").clicked() {
-                        output.add_event(GlobalEvents::AddBinding(binding, command.clone()));
-                    }
-                });
+                            if ui.button("add").clicked() {
+                                output
+                                    .add_event(GlobalEvents::AddBinding(binding, command.clone()));
+                            }
+                        })
+                    },
+                );
             }
         });
     }

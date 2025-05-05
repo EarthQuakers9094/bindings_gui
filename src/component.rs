@@ -1,21 +1,26 @@
 use egui::Ui;
+use std::cell::RefCell;
 
 #[derive(Debug, Default)]
 pub(crate) struct EventStream<E> {
-    events: Vec<E>,
+    events: RefCell<Vec<E>>,
 }
 
 impl<E> EventStream<E> {
-    pub(crate) fn add_event(&mut self, e: E) {
-        self.events.push(e);
+    pub(crate) fn add_event(&self, e: E) {
+        self.events.borrow_mut().push(e);
     }
 
     pub(crate) fn new() -> Self {
-        EventStream { events: Vec::new() }
+        EventStream {
+            events: RefCell::new(Vec::new()),
+        }
     }
 
     pub(crate) fn drain(&mut self) -> impl Iterator<Item = E> + '_ {
-        self.events.drain(0..)
+        self.events
+            .get_mut()
+            .drain(0..)
     }
 }
 
@@ -27,6 +32,6 @@ pub(crate) trait Compenent: std::fmt::Debug {
         &mut self,
         ui: &mut Ui,
         env: &Self::Environment,
-        output: &mut EventStream<Self::OutputEvents>,
+        output: &EventStream<Self::OutputEvents>,
     );
 }

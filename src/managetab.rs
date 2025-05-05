@@ -24,7 +24,7 @@ impl Compenent for ManageTab {
         &mut self,
         ui: &mut Ui,
         env: &Self::Environment,
-        output: &mut crate::component::EventStream<Self::OutputEvents>,
+        output: &crate::component::EventStream<Self::OutputEvents>,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD RENAME FUNCTIONALITY
