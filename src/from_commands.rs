@@ -77,7 +77,7 @@ impl Compenent for FromCommands {
                             button: edit_state.button as i16,
                             location: crate::bindings::ButtonLocation::Button,
                         },
-                        when: edit_state.when,
+                        during: edit_state.when,
                     };
 
                     if ui.button("add").clicked() {

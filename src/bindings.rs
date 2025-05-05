@@ -90,12 +90,12 @@ impl Display for RunWhen {
 pub struct Binding {
     pub controller: u8,
     pub button: Button,
-    pub when: RunWhen,
+    pub during: RunWhen, // bad name because when is a reserved keyword in kotlin and im lazy
 }
 
 impl Display for Binding {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.controller, self.button, self.when)
+        write!(f, "{}:{}:{}", self.controller, self.button, self.during)
     }
 }
 
@@ -114,7 +114,7 @@ impl From<BTreeMap<String, Vec<Binding>>> for BindingsMap {
                 binding_to_command
                     .entry((b.controller, b.button))
                     .or_insert(Vec::new())
-                    .push((command.clone(), b.when));
+                    .push((command.clone(), b.during));
             }
         }
 
@@ -141,7 +141,7 @@ impl BindingsMap {
             self.binding_to_commands
                 .entry((binding.controller, binding.button))
                 .or_default()
-                .push((command.clone(), binding.when));
+                .push((command.clone(), binding.during));
         }
     }
 
@@ -172,7 +172,7 @@ impl BindingsMap {
         self.binding_to_commands
             .get_mut(&(binding.controller, binding.button))
             .unwrap()
-            .retain(|(c, when): &(String, RunWhen)| !(command == c && *when == binding.when));
+            .retain(|(c, when): &(String, RunWhen)| !(command == c && *when == binding.during));
     }
 
     pub(crate) fn is_used(&self, command: &String) -> bool {

@@ -123,7 +123,7 @@ impl Compenent for FromBindings {
                                 Binding {
                                     controller: *controller,
                                     button: *button,
-                                    when: *when,
+                                    during: *when,
                                 },
                                 command.clone(),
                             ));
@@ -204,7 +204,7 @@ impl FromBindings {
             let binding = Binding {
                 controller: binding.0,
                 button: binding.1,
-                when: *when_run,
+                during: *when_run,
             };
 
             if env.bindings.has_binding(&state.command, binding) {
