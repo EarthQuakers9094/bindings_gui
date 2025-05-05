@@ -52,7 +52,7 @@ impl Compenent for FromCommands {
                     for binding in env.bindings.bindings_for_command(command) {
                         ui.label(binding.to_string());
 
-                        if !ui.button("X").clicked() {
+                        if ui.button("X").clicked() {
                             output.add_event(GlobalEvents::RemoveBinding(binding, command.clone()));
                         }
                     }

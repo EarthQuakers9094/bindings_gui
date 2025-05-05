@@ -139,6 +139,13 @@ impl BindingsMap {
         }
     }
 
+    pub(crate) fn remove_command(&mut self, command: &String) {
+        self.command_to_bindings.remove(command);
+        for (_, commands) in &mut self.binding_to_commands {
+            commands.retain(|(c, _)| c != command);
+        }
+    }
+
     pub(crate) fn bindings_for_command(
         &self,
         command: &String,

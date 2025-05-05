@@ -66,6 +66,7 @@ impl State {
             }
             GlobalEvents::RemoveCommand(command) => {
                 self.commands.remove(&command);
+                self.bindings.remove_command(&command);
                 true
             }
             GlobalEvents::DisplayError(error) => {

@@ -209,7 +209,7 @@ impl FromBindings {
                 return;
             }
 
-            output.add_event(GlobalEvents::AddBinding(binding, when_run.to_string()));
+            output.add_event(GlobalEvents::AddBinding(binding, state.command.clone()));
         }
     }
 }
