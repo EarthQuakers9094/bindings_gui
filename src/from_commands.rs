@@ -45,63 +45,55 @@ impl Compenent for FromCommands {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
 
-            // Grid::new("from_commands_grid").show(ui, |ui| {
+            Grid::new("from_commands_grid").show(ui, |ui| {
+                for command in &env.commands {
+                    ui.horizontal(|ui| {
+                        ui.label(command);
 
-            // });
+                        for binding in env.bindings.bindings_for_command(command) {
+                            ui.label(binding.to_string());
 
-            for command in &env.commands {
-                Sides::new().show(
-                    ui,
-                    |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(command);
-
-                            for binding in env.bindings.bindings_for_command(command) {
-                                ui.label(binding.to_string());
-
-                                if ui.button("X").clicked() {
-                                    output.add_event(GlobalEvents::RemoveBinding(
-                                        binding,
-                                        command.clone(),
-                                    ));
-                                }
+                            if ui.button("X").clicked() {
+                                output.add_event(GlobalEvents::RemoveBinding(
+                                    binding,
+                                    command.clone(),
+                                ));
                             }
-                        })
-                    },
-                    |ui| {
-                        ui.horizontal(|ui| {
-                            let edit_state =
-                                self.editing_states.entry(command.clone()).or_default();
+                        }
+                    });
 
-                            ui.label("controller");
+                    ui.horizontal(|ui| {
+                        let edit_state = self.editing_states.entry(command.clone()).or_default();
 
-                            ui.add(egui::DragValue::new(&mut edit_state.controller));
+                        ui.label("controller");
 
-                            ui.label("button");
+                        ui.add(egui::DragValue::new(&mut edit_state.controller));
 
-                            ui.add(egui::DragValue::new(&mut edit_state.button));
+                        ui.label("button");
 
-                            let run_when = &mut edit_state.when;
+                        ui.add(egui::DragValue::new(&mut edit_state.button));
 
-                            run_when.selection_ui(ui, command);
+                        let run_when = &mut edit_state.when;
 
-                            let binding = Binding {
-                                controller: edit_state.controller,
-                                button: Button {
-                                    button: edit_state.button as i16,
-                                    location: crate::bindings::ButtonLocation::Button,
-                                },
-                                during: edit_state.when,
-                            };
+                        run_when.selection_ui(ui, command);
 
-                            if ui.button("add").clicked() {
-                                output
-                                    .add_event(GlobalEvents::AddBinding(binding, command.clone()));
-                            }
-                        })
-                    },
-                );
-            }
+                        let binding = Binding {
+                            controller: edit_state.controller,
+                            button: Button {
+                                button: edit_state.button as i16,
+                                location: crate::bindings::ButtonLocation::Button,
+                            },
+                            during: edit_state.when,
+                        };
+
+                        if ui.button("add").clicked() {
+                            output.add_event(GlobalEvents::AddBinding(binding, command.clone()));
+                        }
+                    });
+
+                    ui.end_row();
+                }
+            });
         });
     }
 }
