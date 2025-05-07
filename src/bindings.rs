@@ -4,7 +4,7 @@ use std::{
     fmt::Display,
 };
 
-use egui::{ComboBox, Ui};
+use egui::{ComboBox, DragValue, Ui};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
@@ -192,9 +192,48 @@ impl BindingsMap {
     }
 }
 
+#[derive(Debug,Serialize, Deserialize, Clone, Copy)]
+pub enum ControllerType {
+    Generic {buttons: u8},
+    XBox,
+    NotBound,
+}
+
+impl ControllerType {
+    fn num_buttons(&self) -> u8 {
+        match self {
+            ControllerType::Generic { buttons } => *buttons,
+            ControllerType::XBox => 10,
+            ControllerType::NotBound => 0,
+        }
+    }
+
+    // todo change u8 to actual button type to include pov
+    pub fn show_button_selector(&self, button: &mut u8, ui: &mut Ui) {
+        ui.add(DragValue::new(button).range(1..=self.num_buttons()));
+    }
+
+    pub fn valid_binding(&self, binding: Button) -> bool {
+        match binding.location {
+            ButtonLocation::Button => 1 <= binding.button && binding.button <= self.num_buttons().into()            ,
+            ButtonLocation::Pov => match self {
+                ControllerType::NotBound => false,
+                _ => {[-1,0,45,90,135,180,225,270].contains(&binding.button)},
+            },
+        }
+    }
+}
+
+impl Default for ControllerType {
+    fn default() -> Self {
+        ControllerType::NotBound
+    }
+}
+
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct SaveData<'a> {
     pub(crate) url: Cow<'a, Option<String>>,
     pub(crate) commands: Cow<'a, BTreeSet<String>>,
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<String, Vec<Binding>>>,
+    pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
 }

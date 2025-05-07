@@ -1,10 +1,10 @@
 use std::collections::{BTreeSet, HashMap};
 
-use egui::{popup_below_widget, DragValue, ScrollArea, Ui};
+use egui::{popup_below_widget, Color32, DragValue, ScrollArea, Ui};
 
 use crate::{
     bindings::{Binding, Button, RunWhen},
-    component::{Compenent, EventStream},
+    component::{Component, EventStream},
     global_state::GlobalEvents,
     State,
 };
@@ -62,10 +62,12 @@ pub struct FromBindings {
     pub filtered_commands: SingleCash,
 }
 
-impl Compenent for FromBindings {
+impl Component for FromBindings {
     type OutputEvents = GlobalEvents;
 
     type Environment = State;
+
+
 
     fn render(
         &mut self,
@@ -79,7 +81,15 @@ impl Compenent for FromBindings {
                 ui.add(DragValue::new(&mut self.controller));
                 ui.label("button");
                 ui.add(DragValue::new(&mut self.button));
-                if ui.button("add button").clicked() {
+                if ui.button("add button").clicked()
+                    && env.valid_binding(
+                        self.controller,
+                        Button {
+                            button: self.button as i16,
+                            location: crate::bindings::ButtonLocation::Button,
+                        },
+                    )
+                {
                     self.bindings.insert((
                         self.controller,
                         Button {
@@ -94,7 +104,7 @@ impl Compenent for FromBindings {
 
             egui::Grid::new("from_bindings_grid").show(ui, |ui| {
                 for (controller, button) in &self.bindings {
-                    ui.label(format!("{controller}:{button}"));
+                    Self::display_binding(*controller, *button, env, ui);
 
                     Self::add_widgets(
                         &mut self.filtered_commands,
@@ -112,7 +122,7 @@ impl Compenent for FromBindings {
 
                 for ((controller, button), commands) in &env.bindings.binding_to_commands {
                     ui.horizontal(|ui| {
-                        ui.label(format!("{controller}:{button}"));
+                        Self::display_binding(*controller, *button, env, ui);
 
                         for (command, when) in commands {
                             ui.label(format!("{command}:{when}"));
@@ -153,6 +163,16 @@ impl Compenent for FromBindings {
 }
 
 impl FromBindings {
+    fn display_binding(controller: u8, button: Button, env: &State, ui: &mut Ui) {
+        let text = format!("{controller}:{button}");
+
+        if env.valid_binding(controller, button) {
+            ui.label(text)
+        } else {
+            ui.colored_label(Color32::from_rgb(0xf3, 0x8b, 0xa8), text)
+        };
+    }
+
     fn add_widgets(
         cache: &mut SingleCash,
         ui: &mut Ui,

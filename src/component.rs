@@ -24,7 +24,7 @@ impl<E> EventStream<E> {
     }
 }
 
-pub(crate) trait Compenent: std::fmt::Debug {
+pub(crate) trait Component: std::fmt::Debug {
     type OutputEvents;
     type Environment;
 

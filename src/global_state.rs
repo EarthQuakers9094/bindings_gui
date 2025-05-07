@@ -11,7 +11,8 @@ use egui::Ui;
 use egui_toast::{Toast, Toasts};
 
 use crate::{
-    bindings::Binding, bindings::BindingsMap, bindings::SaveData, component::EventStream,
+    bindings::{self, Binding, BindingsMap, ControllerType, SaveData},
+    component::EventStream,
     ProgramError, Tab,
 };
 
@@ -22,6 +23,7 @@ pub enum GlobalEvents {
     AddCommand(String),
     RemoveCommand(String),
     DisplayError(String),
+    BindController(ControllerType, u8),
 }
 
 #[derive(Debug, Default)]
@@ -30,6 +32,7 @@ pub struct State {
     pub url: Option<String>,
     pub commands: BTreeSet<String>,
     pub bindings: BindingsMap,
+    pub controllers: [ControllerType; 5],
 }
 
 impl State {
@@ -78,6 +81,10 @@ impl State {
                 });
                 false
             }
+            GlobalEvents::BindController(controller, port) => {
+                self.controllers[port as usize] = controller;
+                true
+            }
         }
     }
 
@@ -102,6 +109,7 @@ impl State {
             url: Cow::Borrowed(&self.url),
             commands: Cow::Borrowed(&self.commands),
             command_to_bindings: Cow::Borrowed(&self.bindings.command_to_bindings),
+            controllers: Cow::Borrowed(&self.controllers),
         }
     }
 
@@ -111,6 +119,7 @@ impl State {
             url: bindings.url.into_owned(),
             commands: bindings.commands.into_owned(),
             bindings: bindings.command_to_bindings.into_owned().into(),
+            controllers: bindings.controllers.into_owned(),
         }
     }
 
@@ -142,5 +151,12 @@ impl State {
         let bindings: SaveData = serde_json::from_str(&file)?;
 
         Ok(Self::from_bindings(bindings, path))
+    }
+
+    pub fn valid_binding(&self, controller: u8, binding: bindings::Button) -> bool {
+        self.controllers
+            .get(controller as usize)
+            .map(|c| c.valid_binding(binding))
+            .unwrap_or(false)
     }
 }

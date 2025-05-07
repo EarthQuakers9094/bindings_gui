@@ -1,10 +1,10 @@
-use egui::{Grid, ScrollArea, Sides, Ui};
+use egui::{Color32, Grid, ScrollArea, Ui};
 
 use std::collections::HashMap;
 
 use crate::{
     bindings::{Binding, Button, RunWhen},
-    component::Compenent,
+    component::Component,
     global_state::GlobalEvents,
     State,
 };
@@ -31,7 +31,7 @@ pub struct FromCommands {
     pub editing_states: HashMap<String, BindingEditingState>,
 }
 
-impl Compenent for FromCommands {
+impl Component for FromCommands {
     type OutputEvents = GlobalEvents;
 
     type Environment = State;
@@ -51,7 +51,16 @@ impl Compenent for FromCommands {
                         ui.label(command);
 
                         for binding in env.bindings.bindings_for_command(command) {
-                            ui.label(binding.to_string());
+                            if !env.controllers[binding.controller as usize]
+                                .valid_binding(binding.button)
+                            {
+                                ui.colored_label(
+                                    Color32::from_rgb(0xf3, 0x8b, 0xa8),
+                                    binding.to_string(),
+                                );
+                            } else {
+                                ui.label(binding.to_string());
+                            }
 
                             if ui.button("X").clicked() {
                                 output.add_event(GlobalEvents::RemoveBinding(
@@ -67,11 +76,12 @@ impl Compenent for FromCommands {
 
                         ui.label("controller");
 
-                        ui.add(egui::DragValue::new(&mut edit_state.controller));
+                        ui.add(egui::DragValue::new(&mut edit_state.controller).range(0..=4));
 
                         ui.label("button");
 
-                        ui.add(egui::DragValue::new(&mut edit_state.button));
+                        env.controllers[edit_state.controller as usize]
+                            .show_button_selector(&mut edit_state.button, ui);
 
                         let run_when = &mut edit_state.when;
 
@@ -86,7 +96,14 @@ impl Compenent for FromCommands {
                             during: edit_state.when,
                         };
 
-                        if ui.button("add").clicked() {
+                        if ui.button("add").clicked()
+                            && (env.controllers[edit_state.controller as usize].valid_binding(
+                                Button {
+                                    button: edit_state.button as i16,
+                                    location: crate::bindings::ButtonLocation::Button,
+                                },
+                            ))
+                        {
                             output.add_event(GlobalEvents::AddBinding(binding, command.clone()));
                         }
                     });

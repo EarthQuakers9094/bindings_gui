@@ -1,5 +1,5 @@
 use anyhow::Result;
-use component::Compenent;
+use component::Component;
 use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
 use egui_toast::{Toast, Toasts};
@@ -14,6 +14,7 @@ mod from_binding;
 mod from_commands;
 mod global_state;
 mod managetab;
+mod manage_controllers;
 
 #[derive(Debug)]
 enum App {
@@ -50,6 +51,12 @@ impl App {
                         ..Default::default()
                     }),
                     name: "manage commands",
+                },
+                Tab {
+                    tab: Box::new(manage_controllers::ManageControllers {
+                        ..Default::default()
+                    }),
+                    name: "manage controllers",
                 },
             ]),
         }
@@ -152,7 +159,7 @@ impl Tabs<'_> {
 
 #[derive(Debug)]
 struct Tab {
-    tab: Box<dyn Compenent<OutputEvents = GlobalEvents, Environment = State>>,
+    tab: Box<dyn Component<OutputEvents = GlobalEvents, Environment = State>>,
     name: &'static str,
 }
 

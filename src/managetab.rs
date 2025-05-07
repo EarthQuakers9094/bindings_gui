@@ -1,6 +1,6 @@
 use egui::{ScrollArea, Ui};
 
-use crate::{component::Compenent, global_state::GlobalEvents, State};
+use crate::{component::Component, global_state::GlobalEvents, State};
 
 #[derive(Debug)]
 pub(crate) struct ManageTab {
@@ -15,7 +15,7 @@ impl Default for ManageTab {
     }
 }
 
-impl Compenent for ManageTab {
+impl Component for ManageTab {
     type OutputEvents = GlobalEvents;
 
     type Environment = State;
