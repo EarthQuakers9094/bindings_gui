@@ -1,4 +1,5 @@
 use anyhow::Result;
+use bumpalo::Bump;
 use component::Component;
 use egui::{Align2, Direction, Ui};
 use egui_dock::{DockArea, DockState, Style, TabViewer};
@@ -13,15 +14,16 @@ mod component;
 mod from_binding;
 mod from_commands;
 mod global_state;
-mod manage_controllers;
 mod manage_commands;
+mod manage_controllers;
 mod search_selector;
 
 #[derive(Debug)]
+#[allow(clippy::large_enum_variant)]
 enum App {
     Initial { error: Option<String> },
 
-    Running { views: State, tree: DockState<Tab> },
+    Running { views: State, tree: DockState<Tab>, arena: Bump },
 }
 
 impl Default for App {
@@ -54,12 +56,11 @@ impl App {
                     name: "manage commands",
                 },
                 Tab {
-                    tab: Box::new(manage_controllers::ManageControllers {
-                        ..Default::default()
-                    }),
+                    tab: Box::new(manage_controllers::ManageControllers {}),
                     name: "manage controllers",
                 },
             ]),
+            arena: Bump::new(),
         }
     }
 
@@ -97,7 +98,7 @@ impl eframe::App for App {
 
         match self {
             App::Initial { .. } => {}
-            App::Running { views, tree } => {
+            App::Running { views, tree, arena } => {
                 let mut toasts = Toasts::new()
                     .anchor(Align2::LEFT_BOTTOM, (-10.0, -10.0))
                     .direction(Direction::BottomUp);
@@ -113,6 +114,7 @@ impl eframe::App for App {
                         &mut Tabs {
                             view: views,
                             toasts: &mut toasts,
+                            arena,
                         },
                     );
 
@@ -146,6 +148,7 @@ impl Error for ProgramError {}
 struct Tabs<'a> {
     view: &'a mut State,
     toasts: &'a mut Toasts,
+    arena: &'a mut Bump,
 }
 
 impl Tabs<'_> {
@@ -172,12 +175,14 @@ impl TabViewer for Tabs<'_> {
     }
 
     fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        match self.view.display_tab(ui, tab, self.toasts) {
+        match self.view.display_tab(ui, tab, self.toasts, self.arena) {
             Ok(_) => {}
             Err(err) => {
                 self.add_error(err.to_string());
             }
         };
+
+        self.arena.reset();
     }
 
     fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {

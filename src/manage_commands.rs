@@ -1,3 +1,4 @@
+use bumpalo::Bump;
 use egui::{ScrollArea, Ui};
 
 use crate::{component::Component, global_state::GlobalEvents, State};
@@ -25,6 +26,7 @@ impl Component for ManageTab {
         ui: &mut Ui,
         env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
+        _arena: &Bump,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD RENAME FUNCTIONALITY
@@ -45,7 +47,7 @@ impl Component for ManageTab {
 
             for command in &env.commands {
                 ui.horizontal(|ui| {
-                    ui.label(command);
+                    ui.label(command.as_str());
                     if ui.button("X").clicked() {
                         let valid_remove = !env.bindings.is_used(command);
 

@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use egui::{popup_below_widget, Id, TextEdit, Ui};
 
 #[derive(Debug, Default)]
@@ -30,12 +32,12 @@ impl<K, V> SingleCache<K, V> {
     }
 }
 
-pub(crate) fn search_selector<'a, A>(
+pub(crate) fn search_selector<A>(
     id: Id,
     text: &mut String,
     selection: &mut A,
-    options: impl Iterator<Item = (String, A)>,
-    cache: &mut SingleCache<String, Vec<(String, A)>>,
+    options: impl Iterator<Item = (Rc<String>, A)>,
+    cache: &mut SingleCache<String, Vec<(Rc<String>, A)>>,
     width: f32,
     ui: &mut Ui,
 ) where A: Clone {
@@ -51,11 +53,10 @@ pub(crate) fn search_selector<'a, A>(
         &edit,
         egui::PopupCloseBehavior::CloseOnClickOutside,
         |ui| {
-            let vals = cache.get(&text, || {
+            let vals = cache.get(text, || {
                 options
                     .filter(|(name, _value)| name.contains(text.as_str()))
                     .take(10)
-                    .map(|(a,b)| (a.clone(),b))
                     .collect::<Vec<_>>()
             });
             
@@ -64,10 +65,12 @@ pub(crate) fn search_selector<'a, A>(
             }
 
             for (name, value) in vals {
-                if ui.button(name).clicked() {
+                if ui.button(name.as_str()).clicked() {
                     *selection = value.clone();
                     ui.memory_mut(|mem| mem.close_popup());
-                    *text = name.clone();
+                    text.clear();
+
+                    text.push_str(name.as_str());
                 }
             }
         },

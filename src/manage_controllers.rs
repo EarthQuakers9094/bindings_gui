@@ -1,3 +1,6 @@
+use std::rc::Rc;
+
+use bumpalo::Bump;
 use egui::{DragValue, ScrollArea, TextEdit};
 
 use crate::{
@@ -19,20 +22,32 @@ impl Component for ManageControllers {
         ui: &mut egui::Ui,
         env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
+        arena: &Bump,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             ui.label("controller slots");
 
             for (id, controller) in env.controllers.iter_mut().enumerate() {
                 ui.horizontal(|ui| {
-                    ui.label(format!("slot {id}"));
+                    ui.label(bumpalo::format!(in &arena, "slot {}", id).as_str());
 
                     ui.label("name: ");
 
                     if controller.bound() {
-                        TextEdit::singleline(&mut env.controller_names[id as usize])
+                        let before = bumpalo::collections::String::from_str_in(
+                            &env.controller_names[id],
+                            arena,
+                        );
+
+                        let s = Rc::make_mut(&mut env.controller_names[id]);
+
+                        TextEdit::singleline(s)
                             .desired_width(100.0)
                             .show(ui);
+
+                        if before != s.as_str() {
+                            output.add_event(GlobalEvents::Save);
+                        }
                     }
 
                     match controller {
@@ -67,16 +82,16 @@ impl Component for ManageControllers {
                             }
                         }
                         ControllerType::XBox { sensitivity } => {
-                                ui.label("xbox");
+                            ui.label("xbox");
 
-                                ui.label("trigger sensitivity");
+                            ui.label("trigger sensitivity");
 
-                                ui.add(DragValue::new(sensitivity).range(0..=1).speed(0.1));
+                            ui.add(DragValue::new(sensitivity).range(0..=1).speed(0.1));
 
-                                if ui.button("remove").clicked() {
-                                    *controller = ControllerType::NotBound;
-                                    output.add_event(GlobalEvents::Save);
-                                }
+                            if ui.button("remove").clicked() {
+                                *controller = ControllerType::NotBound;
+                                output.add_event(GlobalEvents::Save);
+                            }
                         }
                     };
                 });

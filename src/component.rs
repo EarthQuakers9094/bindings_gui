@@ -1,3 +1,4 @@
+use bumpalo::Bump;
 use egui::Ui;
 use std::cell::RefCell;
 
@@ -31,5 +32,6 @@ pub(crate) trait Component: std::fmt::Debug {
         ui: &mut Ui,
         env: &mut Self::Environment,
         output: &EventStream<Self::OutputEvents>,
+        arena: &Bump
     );
 }

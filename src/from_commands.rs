@@ -1,6 +1,7 @@
+use bumpalo::Bump;
 use egui::{Color32, Grid, ScrollArea, Ui};
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     bindings::{Binding, Button, RunWhen},
@@ -15,11 +16,11 @@ pub struct BindingEditingState {
     controller: u8,
     button: Button,
     filter: String,
-    cache: SingleCache<String, Vec<(String, Button)>>,
+    cache: SingleCache<String, Vec<(Rc<String>, Button)>>,
     when: RunWhen,
 
     controller_filter: String,
-    controller_cache: SingleCache<String, Vec<(String, u8)>>,
+    controller_cache: SingleCache<String, Vec<(Rc<String>, u8)>>,
 }
 
 impl Default for BindingEditingState {
@@ -41,7 +42,7 @@ impl Default for BindingEditingState {
 
 #[derive(Debug, Default)]
 pub struct FromCommands {
-    pub editing_states: HashMap<String, BindingEditingState>,
+    pub editing_states: HashMap<Rc<String>, BindingEditingState>,
 }
 
 impl Component for FromCommands {
@@ -54,6 +55,7 @@ impl Component for FromCommands {
         ui: &mut Ui,
         env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
+        arena: &Bump
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
@@ -61,7 +63,7 @@ impl Component for FromCommands {
             Grid::new("from_commands_grid").show(ui, |ui| {
                 for command in &env.commands {
                     ui.horizontal(|ui| {
-                        ui.label(command);
+                        ui.label(command.as_str());
 
                         for binding in env.bindings.bindings_for_command(command) {
                             if !env.controllers[binding.controller as usize]
@@ -69,10 +71,10 @@ impl Component for FromCommands {
                             {
                                 ui.colored_label(
                                     Color32::from_rgb(0xf3, 0x8b, 0xa8),
-                                    binding.show(env),
+                                    binding.show(env, arena),
                                 );
                             } else {
-                                ui.label(binding.show(env));
+                                ui.label(binding.show(env, arena));
                             }
 
                             if ui.button("X").clicked() {
@@ -90,7 +92,7 @@ impl Component for FromCommands {
                         ui.label("controller");
 
                         search_selector(
-                            ui.make_persistent_id(format!("{command}, controller selection")),
+                            ui.make_persistent_id(("from commands controller", command)),
                             &mut edit_state.controller_filter,
                             &mut edit_state.controller,
                             env.controllers.iter().enumerate().flat_map(|(id, c)| {
@@ -108,11 +110,12 @@ impl Component for FromCommands {
                         ui.label("button");
 
                         env.controllers[edit_state.controller as usize].show_button_selector(
-                            ui.make_persistent_id(command),
+                            ui.make_persistent_id(("from commands button", command)),
                             &mut edit_state.filter,
                             &mut edit_state.cache,
                             &mut edit_state.button,
                             ui,
+                            arena
                         );
 
                         edit_state.cache.update();

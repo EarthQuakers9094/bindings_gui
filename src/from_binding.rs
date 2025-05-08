@@ -1,5 +1,9 @@
-use std::collections::{BTreeSet, HashMap};
+use std::{
+    collections::{BTreeSet, HashMap},
+    rc::Rc,
+};
 
+use bumpalo::Bump;
 use egui::{Color32, ScrollArea, Ui};
 
 use crate::{
@@ -12,7 +16,7 @@ use crate::{
 
 #[derive(Debug)]
 pub struct EditingStates {
-    command: String,
+    command: Rc<String>,
     filter: String,
     when: RunWhen,
 }
@@ -20,7 +24,7 @@ pub struct EditingStates {
 impl Default for EditingStates {
     fn default() -> Self {
         Self {
-            command: "".to_string(),
+            command: Rc::new("".to_string()),
             when: RunWhen::WhileTrue,
             filter: "".to_string(),
         }
@@ -34,10 +38,10 @@ pub struct FromBindings {
     pub controller: u8,
     pub bindings: BTreeSet<(u8, Button)>,
     pub button_filter: String,
-    pub button_filter_cache: SingleCache<String, Vec<(String, Button)>>,
-    pub filtered_commands: SingleCache<String, Vec<(String, String)>>,
+    pub button_filter_cache: SingleCache<String, Vec<(Rc<String>, Button)>>,
+    pub filtered_commands: SingleCache<String, Vec<(Rc<String>, Rc<String>)>>,
     pub controller_filter: String,
-    pub controller_cache: SingleCache<String, Vec<(String, u8)>>
+    pub controller_cache: SingleCache<String, Vec<(Rc<String>, u8)>>,
 }
 
 impl Component for FromBindings {
@@ -50,6 +54,7 @@ impl Component for FromBindings {
         ui: &mut Ui,
         env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
+        arena: &Bump,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal(|ui| {
@@ -81,6 +86,7 @@ impl Component for FromBindings {
                     &mut self.button_filter_cache,
                     &mut self.button,
                     ui,
+                    arena,
                 );
 
                 self.button_filter_cache.update();
@@ -98,7 +104,7 @@ impl Component for FromBindings {
 
             egui::Grid::new("from_bindings_grid").show(ui, |ui| {
                 for (controller, button) in &self.bindings {
-                    Self::display_binding(*controller, *button, env, ui);
+                    Self::display_binding(*controller, *button, env, ui, arena);
 
                     Self::add_widgets(
                         &mut self.filtered_commands,
@@ -116,10 +122,10 @@ impl Component for FromBindings {
 
                 for ((controller, button), commands) in &env.bindings.binding_to_commands {
                     ui.horizontal(|ui| {
-                        Self::display_binding(*controller, *button, env, ui);
+                        Self::display_binding(*controller, *button, env, ui, arena);
 
                         for (command, when) in commands {
-                            ui.label(format!("{command}:{when}"));
+                            ui.label(bumpalo::format!(in &arena, "{}:{}", command, when).as_str());
 
                             let keep = !ui.button("X").clicked();
 
@@ -157,22 +163,22 @@ impl Component for FromBindings {
 }
 
 impl FromBindings {
-    fn display_binding(controller: u8, button: Button, env: &State, ui: &mut Ui) {
-        let text = format!(
+    fn display_binding(controller: u8, button: Button, env: &State, ui: &mut Ui, arena: &Bump) {
+        let text = bumpalo::format!(in &arena,
             "{}:{}",
             env.controller_name(controller),
-            env.controllers[controller as usize].button_name(&button)
+            env.controllers[controller as usize].button_name(&button, arena)
         );
 
         if env.valid_binding(controller, button) {
-            ui.label(text)
+            ui.label(text.as_str())
         } else {
-            ui.colored_label(Color32::from_rgb(0xf3, 0x8b, 0xa8), text)
+            ui.colored_label(Color32::from_rgb(0xf3, 0x8b, 0xa8), text.as_str())
         };
     }
 
     fn add_widgets(
-        cache: &mut SingleCache<String, Vec<(String, String)>>,
+        cache: &mut SingleCache<String, Vec<(Rc<String>, Rc<String>)>>,
         ui: &mut Ui,
         env: &State,
         output: &EventStream<GlobalEvents>,
@@ -182,8 +188,8 @@ impl FromBindings {
         ui.horizontal(|ui| {
             ui.label("command");
 
-            search_selector::search_selector(
-                ui.make_persistent_id(format!("command selector bindings for {:?}", binding)),
+            search_selector(
+                ui.make_persistent_id(("command selector from bindings", binding)),
                 &mut state.filter,
                 &mut state.command,
                 env.commands.iter().map(|a| (a.clone(), a.clone())),

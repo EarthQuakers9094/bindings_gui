@@ -2,8 +2,10 @@ use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fmt::Display,
+    rc::Rc,
 };
 
+use bumpalo::Bump;
 use egui::{ComboBox, Id, Ui};
 use serde::{Deserialize, Serialize};
 
@@ -89,24 +91,25 @@ pub struct Binding {
 }
 
 impl Binding {
-    pub fn show(&self, env: &State) -> String {
-        format!(
+    pub fn show<'a>(&self, env: &State, arena: &'a Bump) -> &'a str {
+        bumpalo::format!(in arena,
             "{}:{}:{}",
             env.controller_name(self.controller),
-            env.controllers[self.controller as usize].button_name(&self.button),
+            env.controllers[self.controller as usize].button_name(&self.button, arena),
             self.during
         )
+        .into_bump_str()
     }
 }
 
 #[derive(Debug, Default)]
 pub(crate) struct BindingsMap {
-    pub command_to_bindings: BTreeMap<String, Vec<Binding>>,
-    pub binding_to_commands: BTreeMap<(u8, Button), Vec<(String, RunWhen)>>,
+    pub command_to_bindings: BTreeMap<Rc<String>, Vec<Binding>>,
+    pub binding_to_commands: BTreeMap<(u8, Button), Vec<(Rc<String>, RunWhen)>>,
 }
 
-impl From<BTreeMap<String, Vec<Binding>>> for BindingsMap {
-    fn from(command_to_bindings: BTreeMap<String, Vec<Binding>>) -> Self {
+impl From<BTreeMap<Rc<String>, Vec<Binding>>> for BindingsMap {
+    fn from(command_to_bindings: BTreeMap<Rc<String>, Vec<Binding>>) -> Self {
         let mut binding_to_command = BTreeMap::new();
 
         for (command, bindings) in &command_to_bindings {
@@ -126,7 +129,7 @@ impl From<BTreeMap<String, Vec<Binding>>> for BindingsMap {
 }
 
 impl BindingsMap {
-    pub(crate) fn add_binding(&mut self, command: String, binding: Binding) {
+    pub(crate) fn add_binding(&mut self, command: Rc<String>, binding: Binding) {
         if !self
             .command_to_bindings
             .get(&command)
@@ -141,14 +144,14 @@ impl BindingsMap {
             self.binding_to_commands
                 .entry((binding.controller, binding.button))
                 .or_default()
-                .push((command.clone(), binding.during));
+                .push((command, binding.during));
         }
     }
 
     pub(crate) fn remove_command(&mut self, command: &String) {
         self.command_to_bindings.remove(command);
-        for (_, commands) in &mut self.binding_to_commands {
-            commands.retain(|(c, _)| c != command);
+        for commands in self.binding_to_commands.values_mut() {
+            commands.retain(|(c, _)| c.as_ref() != command);
         }
     }
 
@@ -171,7 +174,9 @@ impl BindingsMap {
         self.binding_to_commands
             .get_mut(&(binding.controller, binding.button))
             .unwrap()
-            .retain(|(c, when): &(String, RunWhen)| !(command == c && *when == binding.during));
+            .retain(|(c, when): &(Rc<String>, RunWhen)| {
+                !(command == c.as_ref() && *when == binding.during)
+            });
     }
 
     pub(crate) fn is_used(&self, command: &String) -> bool {
@@ -191,10 +196,15 @@ impl BindingsMap {
     }
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, Default)]
 pub enum ControllerType {
-    Generic { buttons: u8 },
-    XBox { sensitivity: f32 },
+    Generic {
+        buttons: u8,
+    },
+    XBox {
+        sensitivity: f32,
+    },
+    #[default]
     NotBound,
 }
 
@@ -211,10 +221,12 @@ impl ControllerType {
         !matches!(self, ControllerType::NotBound)
     }
 
-    pub fn button_name(&self, button: &Button) -> String {
+    pub fn button_name<'a>(&self, button: &Button, arena: &'a Bump) -> &'a str {
         match button.location {
             ButtonLocation::Button => match self {
-                ControllerType::Generic { .. } => button.button.to_string(),
+                ControllerType::Generic { .. } => {
+                    bumpalo::format!(in arena, "{}", button.button).into_bump_str()
+                }
                 ControllerType::XBox { .. } => [
                     "a",
                     "b",
@@ -226,9 +238,8 @@ impl ControllerType {
                     "start",
                     "left stick",
                     "right stick",
-                ][button.button as usize - 1]
-                    .to_string(),
-                ControllerType::NotBound => "ERROR".to_string(),
+                ][button.button as usize - 1],
+                ControllerType::NotBound => "ERROR",
             },
             ButtonLocation::Pov => match button.button {
                 0 => "pov up",
@@ -241,25 +252,23 @@ impl ControllerType {
                 315 => "pov up left",
                 -1 => "no pov",
                 _ => "ERROR",
-            }
-            .to_string(),
+            },
             ButtonLocation::Analog => match self {
                 ControllerType::Generic { buttons: _ } => todo!(),
                 ControllerType::XBox { .. } => match button.button {
                     2 => "left trigger",
                     3 => "right trigger",
                     _ => "invalid trigger",
-                }
-                .to_string(),
-                ControllerType::NotBound => "ERROR".to_string(),
+                },
+                ControllerType::NotBound => "ERROR",
             },
         }
     }
 
-    pub fn enumerate_analog(&self) -> Box<dyn Iterator<Item = Button>> {
+    pub fn enumerate_analog<'a>(&self, arena: &'a Bump) -> &'a mut dyn Iterator<Item = Button> {
         match self {
-            ControllerType::Generic { buttons: _ } => Box::new([].into_iter()),
-            ControllerType::XBox { .. } => Box::new(
+            ControllerType::Generic { buttons: _ } => arena.alloc([].into_iter()),
+            ControllerType::XBox { .. } => arena.alloc(
                 [
                     Button {
                         button: 2,
@@ -272,13 +281,13 @@ impl ControllerType {
                 ]
                 .into_iter(),
             ),
-            ControllerType::NotBound => Box::new([].into_iter()),
+            ControllerType::NotBound => arena.alloc([].into_iter()),
         }
     }
 
-    pub fn enumerate_povs(&self) -> Box<dyn Iterator<Item = Button>> {
+    pub fn enumerate_povs<'a>(&self, arena: &'a Bump) -> &'a mut dyn Iterator<Item = Button> {
         match self {
-            Self::Generic { .. } | Self::XBox { .. } => Box::new(
+            Self::Generic { .. } | Self::XBox { .. } => arena.alloc(
                 [-1, 0, 45, 90, 135, 180, 225, 270, 315]
                     .into_iter()
                     .map(|dir| Button {
@@ -286,7 +295,7 @@ impl ControllerType {
                         location: ButtonLocation::Pov,
                     }),
             ),
-            _ => Box::new(
+            _ => arena.alloc(
                 [-1, 0, 45, 90, 135, 180, 225, 270, 315]
                     .into_iter()
                     .map(|dir| Button {
@@ -297,14 +306,14 @@ impl ControllerType {
         }
     }
 
-    pub fn enumerate_buttons(&self) -> impl Iterator<Item = Button> {
+    pub fn enumerate_buttons<'a>(&self, arena: &'a Bump) -> impl Iterator<Item = Button> + 'a {
         (1..=self.num_buttons())
             .map(|button| Button {
                 button: button.into(),
                 location: ButtonLocation::Button,
             })
-            .chain(self.enumerate_povs())
-            .chain(self.enumerate_analog())
+            .chain(self.enumerate_povs(arena))
+            .chain(self.enumerate_analog(arena))
     }
 
     // todo change u8 to actual button type to include pov
@@ -312,16 +321,21 @@ impl ControllerType {
         &self,
         id: Id,
         filter: &mut String,
-        filter_cache: &mut SingleCache<String, Vec<(String, Button)>>,
+        filter_cache: &mut SingleCache<String, Vec<(Rc<String>, Button)>>,
         button: &mut Button,
         ui: &mut Ui,
+        arena: &Bump,
     ) {
         search_selector::search_selector(
             id,
             filter,
             button,
-            self.enumerate_buttons()
-                .map(|button| (self.button_name(&button), button)),
+            self.enumerate_buttons(arena).map(|button| {
+                (
+                    Rc::new(self.button_name(&button, arena).to_string()),
+                    button,
+                )
+            }),
             filter_cache,
             100.0,
             ui,
@@ -346,17 +360,11 @@ impl ControllerType {
     }
 }
 
-impl Default for ControllerType {
-    fn default() -> Self {
-        ControllerType::NotBound
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct SaveData<'a> {
     pub(crate) url: Cow<'a, Option<String>>,
-    pub(crate) commands: Cow<'a, BTreeSet<String>>,
-    pub(crate) command_to_bindings: Cow<'a, BTreeMap<String, Vec<Binding>>>,
+    pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
+    pub(crate) command_to_bindings: Cow<'a, BTreeMap<Rc<String>, Vec<Binding>>>,
     pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
-    pub(crate) controller_names: Cow<'a, [String; 5]>,
+    pub(crate) controller_names: Cow<'a, [Rc<String>; 5]>,
 }

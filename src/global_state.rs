@@ -4,9 +4,11 @@ use std::{
     fs::{create_dir_all, read_to_string, File},
     io::Write,
     path::PathBuf,
+    rc::Rc,
 };
 
 use anyhow::{Context, Result};
+use bumpalo::Bump;
 use egui::Ui;
 use egui_toast::{Toast, Toasts};
 
@@ -18,10 +20,10 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub enum GlobalEvents {
-    AddBinding(Binding, String),
-    RemoveBinding(Binding, String),
+    AddBinding(Binding, Rc<String>),
+    RemoveBinding(Binding, Rc<String>),
     AddCommand(String),
-    RemoveCommand(String),
+    RemoveCommand(Rc<String>),
     DisplayError(String),
     Save,
 }
@@ -30,17 +32,23 @@ pub enum GlobalEvents {
 pub struct State {
     pub save_file: PathBuf,
     pub url: Option<String>,
-    pub commands: BTreeSet<String>,
+    pub commands: BTreeSet<Rc<String>>,
     pub bindings: BindingsMap,
     pub controllers: [ControllerType; 5],
-    pub controller_names: [String; 5],
+    pub controller_names: [Rc<String>; 5],
 }
 
 impl State {
-    pub fn display_tab(&mut self, ui: &mut Ui, tab: &mut Tab, toasts: &mut Toasts) -> Result<()> {
+    pub fn display_tab(
+        &mut self,
+        ui: &mut Ui,
+        tab: &mut Tab,
+        toasts: &mut Toasts,
+        arena: &Bump,
+    ) -> Result<()> {
         let mut events = EventStream::new();
 
-        tab.tab.render(ui, self, &mut events);
+        tab.tab.render(ui, self, &events, arena);
 
         let mut update = false;
 
@@ -66,7 +74,7 @@ impl State {
                 true
             }
             GlobalEvents::AddCommand(command) => {
-                self.commands.insert(command);
+                self.commands.insert(Rc::new(command));
                 true
             }
             GlobalEvents::RemoveCommand(command) => {
@@ -82,9 +90,7 @@ impl State {
                 });
                 false
             }
-            GlobalEvents::Save => {
-                true
-            }
+            GlobalEvents::Save => true,
         }
     }
 
@@ -162,12 +168,12 @@ impl State {
             .unwrap_or(false)
     }
 
-    pub fn controller_name(&self, controller: u8) -> String {
+    pub fn controller_name(&self, controller: u8) -> Rc<String> {
         let name = &self.controller_names[controller as usize];
 
         if name.is_empty() {
-            return controller.to_string();
-        } 
+            return Rc::new(controller.to_string());
+        }
 
         name.clone()
     }
