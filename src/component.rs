@@ -18,9 +18,7 @@ impl<E> EventStream<E> {
     }
 
     pub(crate) fn drain(&mut self) -> impl Iterator<Item = E> + '_ {
-        self.events
-            .get_mut()
-            .drain(0..)
+        self.events.get_mut().drain(0..)
     }
 }
 
@@ -31,7 +29,7 @@ pub(crate) trait Component: std::fmt::Debug {
     fn render(
         &mut self,
         ui: &mut Ui,
-        env: &Self::Environment,
+        env: &mut Self::Environment,
         output: &EventStream<Self::OutputEvents>,
     );
 }

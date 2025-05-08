@@ -23,7 +23,7 @@ impl Component for ManageTab {
     fn render(
         &mut self,
         ui: &mut Ui,
-        env: &Self::Environment,
+        env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
     ) {
         ScrollArea::vertical().show(ui, |ui| {

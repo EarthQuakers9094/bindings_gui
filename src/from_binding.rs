@@ -6,7 +6,7 @@ use crate::{
     bindings::{Binding, Button, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
-    search_selector::{self, SingleCache},
+    search_selector::{self, search_selector, SingleCache},
     State,
 };
 
@@ -27,7 +27,7 @@ impl Default for EditingStates {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FromBindings {
     pub editing_states: HashMap<(u8, Button), EditingStates>,
     pub button: Button,
@@ -36,23 +36,8 @@ pub struct FromBindings {
     pub button_filter: String,
     pub button_filter_cache: search_selector::SingleCache<String, Vec<(String, Button)>>,
     pub filtered_commands: SingleCache<String, Vec<(String, String)>>,
-}
-
-impl Default for FromBindings {
-    fn default() -> Self {
-        Self {
-            editing_states: Default::default(),
-            button: Button {
-                button: 1,
-                location: crate::bindings::ButtonLocation::Button,
-            },
-            controller: Default::default(),
-            bindings: Default::default(),
-            filtered_commands: Default::default(),
-            button_filter: Default::default(),
-            button_filter_cache: Default::default(),
-        }
-    }
+    pub controller_filter: String,
+    pub controller_cache: SingleCache<String, Vec<(String, u8)>>
 }
 
 impl Component for FromBindings {
@@ -63,12 +48,29 @@ impl Component for FromBindings {
     fn render(
         &mut self,
         ui: &mut Ui,
-        env: &Self::Environment,
+        env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             ui.horizontal(|ui| {
                 ui.label("controller");
+
+                search_selector::search_selector(
+                    ui.make_persistent_id("controller_selector"),
+                    &mut self.controller_filter,
+                    &mut self.controller,
+                    env.controllers.iter().enumerate().flat_map(|(id, c)| {
+                        if c.bound() {
+                            Some((env.controller_name(id as u8), id as u8))
+                        } else {
+                            None
+                        }
+                    }),
+                    &mut self.controller_cache,
+                    100.0,
+                    ui,
+                );
+
                 ui.add(DragValue::new(&mut self.controller));
 
                 ui.label("button");
@@ -155,7 +157,8 @@ impl Component for FromBindings {
 impl FromBindings {
     fn display_binding(controller: u8, button: Button, env: &State, ui: &mut Ui) {
         let text = format!(
-            "{controller}:{}",
+            "{}:{}",
+            env.controller_name(controller),
             env.controllers[controller as usize].button_name(&button)
         );
 
@@ -175,9 +178,6 @@ impl FromBindings {
         binding: (u8, Button),
     ) {
         ui.horizontal(|ui| {
-            ui.label("when");
-            let when_run = &mut state.when;
-
             ui.label("command");
 
             search_selector::search_selector(
@@ -190,12 +190,15 @@ impl FromBindings {
                 ui,
             );
 
+            ui.label("when");
+            let when_run: &mut RunWhen = &mut state.when;
+
             when_run.selection_ui(ui, binding);
 
             if ui.button("add").clicked() {
                 if !env.commands.contains(&state.command) {
                     output.add_event(GlobalEvents::DisplayError(
-                        "not a valid command".to_string(),
+                        "not a valid command (maybe try adding it in manage commands)".to_string(),
                     ));
                     return;
                 }

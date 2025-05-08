@@ -1,1 +1,1 @@
-{"url":null,"commands":["eat fish"],"command_to_bindings":{},"controllers":["XBox",{"Generic":{"buttons":16}},{"Generic":{"buttons":16}},"NotBound","NotBound"]}
+{"url":null,"commands":[],"command_to_bindings":{},"controllers":[{"XBox":{"sensitivity":0.3}},"NotBound","NotBound","NotBound","NotBound"],"controller_names":["","","","",""]}

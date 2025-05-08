@@ -25,6 +25,12 @@ pub struct Button {
     pub(crate) location: ButtonLocation,
 }
 
+impl Default for Button {
+    fn default() -> Self {
+        Self { button: 1, location: ButtonLocation::Button }
+    }
+}
+
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
 pub enum RunWhen {
     OnTrue,
@@ -56,7 +62,7 @@ impl RunWhen {
     pub fn selection_ui(&mut self, ui: &mut Ui, id: impl std::hash::Hash) {
         ui.push_id(id, |ui| {
             ComboBox::from_label("")
-                .selected_text(format!("{}", self))
+                .selected_text(self.get_str())
                 .show_ui(ui, |ui| {
                     for i in RunWhen::enumerate() {
                         ui.selectable_value(self, i, i.get_str());
@@ -198,6 +204,10 @@ impl ControllerType {
         }
     }
 
+    pub fn bound(&self) -> bool {
+        !matches!(self, ControllerType::NotBound)
+    }
+
     pub fn button_name(&self, button: &Button) -> String {
         match button.location {
             ButtonLocation::Button => match self {
@@ -232,7 +242,7 @@ impl ControllerType {
             .to_string(),
             ButtonLocation::Analog => match self {
                 ControllerType::Generic { buttons: _ } => todo!(),
-                ControllerType::XBox {..} => match button.button {
+                ControllerType::XBox { .. } => match button.button {
                     2 => "left trigger",
                     3 => "right trigger",
                     _ => "invalid trigger",
@@ -246,8 +256,41 @@ impl ControllerType {
     pub fn enumerate_analog(&self) -> Box<dyn Iterator<Item = Button>> {
         match self {
             ControllerType::Generic { buttons: _ } => Box::new([].into_iter()),
-            ControllerType::XBox {..} => Box::new([Button { button: 2, location: ButtonLocation::Analog }, Button {button: 3, location: ButtonLocation::Analog}].into_iter()),
+            ControllerType::XBox { .. } => Box::new(
+                [
+                    Button {
+                        button: 2,
+                        location: ButtonLocation::Analog,
+                    },
+                    Button {
+                        button: 3,
+                        location: ButtonLocation::Analog,
+                    },
+                ]
+                .into_iter(),
+            ),
             ControllerType::NotBound => Box::new([].into_iter()),
+        }
+    }
+
+    pub fn enumerate_povs(&self) -> Box<dyn Iterator<Item = Button>> {
+        match self {
+            Self::Generic { .. } | Self::XBox { .. } => Box::new(
+                [-1, 0, 45, 90, 135, 180, 225, 270, 315]
+                    .into_iter()
+                    .map(|dir| Button {
+                        button: dir,
+                        location: ButtonLocation::Pov,
+                    }),
+            ),
+            _ => Box::new(
+                [-1, 0, 45, 90, 135, 180, 225, 270, 315]
+                    .into_iter()
+                    .map(|dir| Button {
+                        button: dir,
+                        location: ButtonLocation::Pov,
+                    }),
+            ),
         }
     }
 
@@ -257,16 +300,8 @@ impl ControllerType {
                 button: button.into(),
                 location: ButtonLocation::Button,
             })
-            .chain(
-                [-1, 0, 45, 90, 135, 180, 225, 270, 315]
-                    .into_iter()
-                    .map(|dir| Button {
-                        button: dir,
-                        location: ButtonLocation::Pov,
-                    }),
-            ).chain(
-                self.enumerate_analog(),
-            )
+            .chain(self.enumerate_povs())
+            .chain(self.enumerate_analog())
     }
 
     // todo change u8 to actual button type to include pov
@@ -299,12 +334,10 @@ impl ControllerType {
                 ControllerType::NotBound => false,
                 _ => [-1, 0, 45, 90, 135, 180, 225, 270].contains(&binding.button),
             },
-            ButtonLocation::Analog => {
-                match self {
-                    ControllerType::Generic { buttons: _ } => false,
-                    ControllerType::XBox { .. } => binding.button == 2 || binding.button == 3,
-                    ControllerType::NotBound => false,
-                }
+            ButtonLocation::Analog => match self {
+                ControllerType::Generic { buttons: _ } => false,
+                ControllerType::XBox { .. } => binding.button == 2 || binding.button == 3,
+                ControllerType::NotBound => false,
             },
         }
     }
@@ -322,4 +355,5 @@ pub(crate) struct SaveData<'a> {
     pub(crate) commands: Cow<'a, BTreeSet<String>>,
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<String, Vec<Binding>>>,
     pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
+    pub(crate) controller_names: Cow<'a, [String; 5]>,
 }

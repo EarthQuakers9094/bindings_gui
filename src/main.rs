@@ -14,7 +14,7 @@ mod from_binding;
 mod from_commands;
 mod global_state;
 mod manage_controllers;
-mod managetab;
+mod manage_commands;
 mod search_selector;
 
 #[derive(Debug)]
@@ -48,7 +48,7 @@ impl App {
                     name: "bindings to commands",
                 },
                 Tab {
-                    tab: Box::new(managetab::ManageTab {
+                    tab: Box::new(manage_commands::ManageTab {
                         ..Default::default()
                     }),
                     name: "manage commands",

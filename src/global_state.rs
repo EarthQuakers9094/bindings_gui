@@ -23,7 +23,7 @@ pub enum GlobalEvents {
     AddCommand(String),
     RemoveCommand(String),
     DisplayError(String),
-    BindController(ControllerType, u8),
+    Save,
 }
 
 #[derive(Debug, Default)]
@@ -33,6 +33,7 @@ pub struct State {
     pub commands: BTreeSet<String>,
     pub bindings: BindingsMap,
     pub controllers: [ControllerType; 5],
+    pub controller_names: [String; 5],
 }
 
 impl State {
@@ -81,8 +82,7 @@ impl State {
                 });
                 false
             }
-            GlobalEvents::BindController(controller, port) => {
-                self.controllers[port as usize] = controller;
+            GlobalEvents::Save => {
                 true
             }
         }
@@ -110,6 +110,7 @@ impl State {
             commands: Cow::Borrowed(&self.commands),
             command_to_bindings: Cow::Borrowed(&self.bindings.command_to_bindings),
             controllers: Cow::Borrowed(&self.controllers),
+            controller_names: Cow::Borrowed(&self.controller_names),
         }
     }
 
@@ -120,6 +121,7 @@ impl State {
             commands: bindings.commands.into_owned(),
             bindings: bindings.command_to_bindings.into_owned().into(),
             controllers: bindings.controllers.into_owned(),
+            controller_names: bindings.controller_names.into_owned(),
         }
     }
 
@@ -158,5 +160,15 @@ impl State {
             .get(controller as usize)
             .map(|c| c.valid_binding(binding))
             .unwrap_or(false)
+    }
+
+    pub fn controller_name(&self, controller: u8) -> String {
+        let name = &self.controller_names[controller as usize];
+
+        if name.is_empty() {
+            return controller.to_string();
+        } 
+
+        name.clone()
     }
 }
