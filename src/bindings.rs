@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     global_state::State,
-    search_selector::{self, SingleCash},
+    search_selector::{self, SingleCache},
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
@@ -274,7 +274,7 @@ impl ControllerType {
         &self,
         id: Id,
         filter: &mut String,
-        filter_cache: &mut SingleCash<String, Vec<(String, Button)>>,
+        filter_cache: &mut SingleCache<String, Vec<(String, Button)>>,
         button: &mut Button,
         ui: &mut Ui,
     ) {

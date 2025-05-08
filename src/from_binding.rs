@@ -6,12 +6,14 @@ use crate::{
     bindings::{Binding, Button, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
-    search_selector, State,
+    search_selector::{self, SingleCache},
+    State,
 };
 
 #[derive(Debug)]
 pub struct EditingStates {
     command: String,
+    filter: String,
     when: RunWhen,
 }
 
@@ -20,35 +22,7 @@ impl Default for EditingStates {
         Self {
             command: "".to_string(),
             when: RunWhen::WhileTrue,
-        }
-    }
-}
-
-#[derive(Debug, Default)]
-pub struct SingleCash {
-    last_key: Option<String>,
-    value: Vec<String>,
-    read: bool,
-}
-
-impl SingleCash {
-    fn get<F>(&mut self, key: &str, f: F) -> &[String]
-    where
-        F: FnOnce() -> Vec<String>,
-    {
-        self.read = true;
-        if self.last_key.as_deref() != Some(key) {
-            self.last_key = Some(key.to_string());
-            self.value = f();
-        }
-
-        &self.value
-    }
-
-    fn update(&mut self) {
-        if !self.read {
-            self.last_key = None;
-            self.value.clear();
+            filter: "".to_string(),
         }
     }
 }
@@ -60,8 +34,8 @@ pub struct FromBindings {
     pub controller: u8,
     pub bindings: BTreeSet<(u8, Button)>,
     pub button_filter: String,
-    pub button_filter_cache: search_selector::SingleCash<String, Vec<(String, Button)>>,
-    pub filtered_commands: SingleCash,
+    pub button_filter_cache: search_selector::SingleCache<String, Vec<(String, Button)>>,
+    pub filtered_commands: SingleCache<String, Vec<(String, String)>>,
 }
 
 impl Default for FromBindings {
@@ -108,15 +82,9 @@ impl Component for FromBindings {
                 );
 
                 if ui.button("add button").clicked()
-                    && env.valid_binding(
-                        self.controller,
-                        self.button,
-                    )
+                    && env.valid_binding(self.controller, self.button)
                 {
-                    self.bindings.insert((
-                        self.controller,
-                        self.button,
-                    ));
+                    self.bindings.insert((self.controller, self.button));
                 }
             });
 
@@ -199,7 +167,7 @@ impl FromBindings {
     }
 
     fn add_widgets(
-        cache: &mut SingleCash,
+        cache: &mut SingleCache<String, Vec<(String, String)>>,
         ui: &mut Ui,
         env: &State,
         output: &EventStream<GlobalEvents>,
@@ -212,34 +180,14 @@ impl FromBindings {
 
             ui.label("command");
 
-            let edit = ui.text_edit_singleline(&mut state.command);
-
-            let id = ui.make_persistent_id("completion box command from bindings");
-
-            if edit.gained_focus() {
-                ui.memory_mut(|mem| mem.open_popup(id));
-            }
-
-            popup_below_widget(
+            search_selector::search_selector(
+                ui.make_persistent_id(format!("command selector bindings for {:?}", binding)),
+                &mut state.filter,
+                &mut state.command,
+                env.commands.iter().map(|a| (a.clone(), a.clone())),
+                cache,
+                200.0,
                 ui,
-                id,
-                &edit,
-                egui::PopupCloseBehavior::CloseOnClickOutside,
-                |ui| {
-                    for command in cache.get(&state.command, || {
-                        env.commands
-                            .iter()
-                            .filter(|s| s.contains(&state.command))
-                            .take(10)
-                            .cloned()
-                            .collect::<Vec<_>>()
-                    }) {
-                        if ui.button(command).clicked() {
-                            state.command = command.clone();
-                            ui.memory_mut(|mem| mem.close_popup());
-                        }
-                    }
-                },
             );
 
             when_run.selection_ui(ui, binding);

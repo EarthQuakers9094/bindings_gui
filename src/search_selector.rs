@@ -1,13 +1,13 @@
 use egui::{popup_below_widget, Id, TextEdit, Ui};
 
 #[derive(Debug, Default)]
-pub struct SingleCash<K, V> {
+pub struct SingleCache<K, V> {
     last_key: Option<K>,
     value: V,
     read: bool,
 }
 
-impl<K, V> SingleCash<K, V> {
+impl<K, V> SingleCache<K, V> {
     pub fn get<F>(&mut self, key: &K, f: F) -> &V
     where
         F: FnOnce() -> V,
@@ -26,6 +26,7 @@ impl<K, V> SingleCash<K, V> {
         if !self.read {
             self.last_key = None;
         }
+        self.read = false;
     }
 }
 
@@ -34,7 +35,7 @@ pub(crate) fn search_selector<'a, A>(
     text: &mut String,
     selection: &mut A,
     options: impl Iterator<Item = (String, A)>,
-    cache: &mut SingleCash<String, Vec<(String, A)>>,
+    cache: &mut SingleCache<String, Vec<(String, A)>>,
     width: f32,
     ui: &mut Ui,
 ) where A: Clone {

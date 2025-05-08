@@ -3,7 +3,7 @@ use egui::{Color32, Grid, ScrollArea, Ui};
 use std::collections::HashMap;
 
 use crate::{
-    bindings::{Binding, Button, RunWhen}, component::Component, global_state::GlobalEvents, search_selector::SingleCash, State
+    bindings::{Binding, Button, RunWhen}, component::Component, global_state::GlobalEvents, search_selector::SingleCache, State
 };
 
 #[derive(Debug)]
@@ -11,7 +11,7 @@ pub struct BindingEditingState {
     controller: u8,
     button: Button,
     filter: String,
-    cache: SingleCash<String, Vec<(String, Button)>>,
+    cache: SingleCache<String, Vec<(String, Button)>>,
     when: RunWhen,
 }
 
