@@ -27,7 +27,10 @@ pub struct Button {
 
 impl Default for Button {
     fn default() -> Self {
-        Self { button: 1, location: ButtonLocation::Button }
+        Self {
+            button: 1,
+            location: ButtonLocation::Button,
+        }
     }
 }
 
@@ -89,7 +92,7 @@ impl Binding {
     pub fn show(&self, env: &State) -> String {
         format!(
             "{}:{}:{}",
-            self.controller,
+            env.controller_name(self.controller),
             env.controllers[self.controller as usize].button_name(&self.button),
             self.during
         )

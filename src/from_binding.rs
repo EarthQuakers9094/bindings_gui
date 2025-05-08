@@ -1,12 +1,12 @@
 use std::collections::{BTreeSet, HashMap};
 
-use egui::{Color32, DragValue, ScrollArea, Ui};
+use egui::{Color32, ScrollArea, Ui};
 
 use crate::{
     bindings::{Binding, Button, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
-    search_selector::{self, search_selector, SingleCache},
+    search_selector::{search_selector, SingleCache},
     State,
 };
 
@@ -34,7 +34,7 @@ pub struct FromBindings {
     pub controller: u8,
     pub bindings: BTreeSet<(u8, Button)>,
     pub button_filter: String,
-    pub button_filter_cache: search_selector::SingleCache<String, Vec<(String, Button)>>,
+    pub button_filter_cache: SingleCache<String, Vec<(String, Button)>>,
     pub filtered_commands: SingleCache<String, Vec<(String, String)>>,
     pub controller_filter: String,
     pub controller_cache: SingleCache<String, Vec<(String, u8)>>
@@ -55,7 +55,7 @@ impl Component for FromBindings {
             ui.horizontal(|ui| {
                 ui.label("controller");
 
-                search_selector::search_selector(
+                search_selector(
                     ui.make_persistent_id("controller_selector"),
                     &mut self.controller_filter,
                     &mut self.controller,
@@ -71,7 +71,7 @@ impl Component for FromBindings {
                     ui,
                 );
 
-                ui.add(DragValue::new(&mut self.controller));
+                self.controller_cache.update();
 
                 ui.label("button");
 
@@ -82,6 +82,8 @@ impl Component for FromBindings {
                     &mut self.button,
                     ui,
                 );
+
+                self.button_filter_cache.update();
 
                 if ui.button("add button").clicked()
                     && env.valid_binding(self.controller, self.button)
