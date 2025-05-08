@@ -13,8 +13,9 @@ mod component;
 mod from_binding;
 mod from_commands;
 mod global_state;
-mod managetab;
 mod manage_controllers;
+mod managetab;
+mod search_selector;
 
 #[derive(Debug)]
 enum App {
@@ -225,7 +226,6 @@ fn main() -> Result<(), eframe::Error> {
 //                 );
 
 //                 commands.insert(format!("{command_prefix}{command}"));
-
 
 //                 command += 1;
 //             }

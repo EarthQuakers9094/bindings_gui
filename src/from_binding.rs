@@ -6,7 +6,7 @@ use crate::{
     bindings::{Binding, Button, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
-    State,
+    search_selector, State,
 };
 
 #[derive(Debug)]
@@ -53,21 +53,38 @@ impl SingleCash {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct FromBindings {
     pub editing_states: HashMap<(u8, Button), EditingStates>,
-    pub button: u8,
+    pub button: Button,
     pub controller: u8,
     pub bindings: BTreeSet<(u8, Button)>,
+    pub button_filter: String,
+    pub button_filter_cache: search_selector::SingleCash<String, Vec<(String, Button)>>,
     pub filtered_commands: SingleCash,
+}
+
+impl Default for FromBindings {
+    fn default() -> Self {
+        Self {
+            editing_states: Default::default(),
+            button: Button {
+                button: 1,
+                location: crate::bindings::ButtonLocation::Button,
+            },
+            controller: Default::default(),
+            bindings: Default::default(),
+            filtered_commands: Default::default(),
+            button_filter: Default::default(),
+            button_filter_cache: Default::default(),
+        }
+    }
 }
 
 impl Component for FromBindings {
     type OutputEvents = GlobalEvents;
 
     type Environment = State;
-
-
 
     fn render(
         &mut self,
@@ -79,26 +96,31 @@ impl Component for FromBindings {
             ui.horizontal(|ui| {
                 ui.label("controller");
                 ui.add(DragValue::new(&mut self.controller));
+
                 ui.label("button");
-                ui.add(DragValue::new(&mut self.button));
+
+                env.controllers[self.controller as usize].show_button_selector(
+                    ui.make_persistent_id("bindings button selector"),
+                    &mut self.button_filter,
+                    &mut self.button_filter_cache,
+                    &mut self.button,
+                    ui,
+                );
+
                 if ui.button("add button").clicked()
                     && env.valid_binding(
                         self.controller,
-                        Button {
-                            button: self.button as i16,
-                            location: crate::bindings::ButtonLocation::Button,
-                        },
+                        self.button,
                     )
                 {
                     self.bindings.insert((
                         self.controller,
-                        Button {
-                            button: self.button as i16,
-                            location: crate::bindings::ButtonLocation::Button,
-                        },
+                        self.button,
                     ));
                 }
             });
+
+            ui.separator();
 
             self.bindings.retain(|b| !env.bindings.has_button(*b));
 
@@ -164,7 +186,10 @@ impl Component for FromBindings {
 
 impl FromBindings {
     fn display_binding(controller: u8, button: Button, env: &State, ui: &mut Ui) {
-        let text = format!("{controller}:{button}");
+        let text = format!(
+            "{controller}:{}",
+            env.controllers[controller as usize].button_name(&button)
+        );
 
         if env.valid_binding(controller, button) {
             ui.label(text)
@@ -205,6 +230,7 @@ impl FromBindings {
                         env.commands
                             .iter()
                             .filter(|s| s.contains(&state.command))
+                            .take(10)
                             .cloned()
                             .collect::<Vec<_>>()
                     }) {

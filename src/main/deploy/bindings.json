@@ -1,1 +1,1 @@
-{"url":null,"commands":[],"command_to_bindings":{},"controllers":["XBox",{"Generic":{"buttons":16}},{"Generic":{"buttons":16}},"NotBound","NotBound"]}
+{"url":null,"commands":["a","b"],"command_to_bindings":{"a":[{"controller":0,"button":{"button":45,"location":"Pov"},"during":"WhileTrue"}],"b":[{"controller":0,"button":{"button":10,"location":"Button"},"during":"WhileTrue"}]},"controllers":["XBox",{"Generic":{"buttons":16}},{"Generic":{"buttons":16}},"NotBound","NotBound"]}

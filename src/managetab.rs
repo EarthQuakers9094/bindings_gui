@@ -36,11 +36,12 @@ impl Component for ManageTab {
                 ui.text_edit_singleline(adding);
 
                 if ui.button("add").clicked() && !adding.is_empty() {
-                    output.add_event(GlobalEvents::AddCommand(adding.clone()));
-                    *adding = "".to_string();
+                    output.add_event(GlobalEvents::AddCommand(std::mem::take(adding)));
                     update = true;
                 }
             });
+
+            ui.separator();
 
             for command in &env.commands {
                 ui.horizontal(|ui| {

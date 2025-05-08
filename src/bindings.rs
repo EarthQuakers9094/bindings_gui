@@ -4,40 +4,46 @@ use std::{
     fmt::Display,
 };
 
-use egui::{ComboBox, DragValue, Ui};
+use egui::{ComboBox, Id, Ui};
 use serde::{Deserialize, Serialize};
+
+use crate::{
+    global_state::State,
+    search_selector::{self, SingleCash},
+};
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
 pub enum ButtonLocation {
     Button,
+    Analog,
     Pov,
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
 pub struct Button {
     pub(crate) button: i16,
-    pub(crate) location: ButtonLocation
+    pub(crate) location: ButtonLocation,
 }
 
-impl Display for Button {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.location {
-            ButtonLocation::Button => self.button.fmt(f),
-            ButtonLocation::Pov => match self.button {
-                0 => write!(f, "up"),
-                45 => write!(f, "up left"),
-                90 => write!(f, "right"),
-                135 => write!(f, "down right"),
-                180 => write!(f, "down"),
-                225 => write!(f, "down left"),
-                270 => write!(f, "left"),
-                315 => write!(f, "up left"),
-                -1 => write!(f, "no pov"),
-                _ => write!(f, "ERROR"),
-            },
-        }
-    }
-}
+// impl Display for Button {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         match self.location {
+//             ButtonLocation::Button => self.button.fmt(f),
+//             ButtonLocation::Pov => match self.button {
+//                 0 => write!(f, "up"),
+//                 45 => write!(f, "up left"),
+//                 90 => write!(f, "right"),
+//                 135 => write!(f, "down right"),
+//                 180 => write!(f, "down"),
+//                 225 => write!(f, "down left"),
+//                 270 => write!(f, "left"),
+//                 315 => write!(f, "up left"),
+//                 -1 => write!(f, "no pov"),
+//                 _ => write!(f, "ERROR"),
+//             },
+//         }
+//     }
+// }
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
 pub enum RunWhen {
@@ -93,11 +99,22 @@ pub struct Binding {
     pub during: RunWhen, // bad name because when is a reserved keyword in kotlin and im lazy
 }
 
-impl Display for Binding {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}:{}:{}", self.controller, self.button, self.during)
+impl Binding {
+    pub fn show(&self, env: &State) -> String {
+        format!(
+            "{}:{}:{}",
+            self.controller,
+            env.controllers[self.controller as usize].button_name(&self.button),
+            self.during
+        )
     }
 }
+
+// impl Display for Binding {
+//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+//         write!(f, "{}:{}:{}", self.controller, self.button, self.during)
+//     }
+// }
 
 #[derive(Debug, Default)]
 pub(crate) struct BindingsMap {
@@ -152,7 +169,6 @@ impl BindingsMap {
         }
     }
 
-
     pub(crate) fn bindings_for_command(
         &self,
         command: &String,
@@ -192,9 +208,9 @@ impl BindingsMap {
     }
 }
 
-#[derive(Debug,Serialize, Deserialize, Clone, Copy)]
+#[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ControllerType {
-    Generic {buttons: u8},
+    Generic { buttons: u8 },
     XBox,
     NotBound,
 }
@@ -208,17 +224,119 @@ impl ControllerType {
         }
     }
 
-    // todo change u8 to actual button type to include pov
-    pub fn show_button_selector(&self, button: &mut u8, ui: &mut Ui) {
-        ui.add(DragValue::new(button).range(1..=self.num_buttons()));
+    pub fn button_name(&self, button: &Button) -> String {
+        match button.location {
+            ButtonLocation::Button => match self {
+                ControllerType::Generic { .. } => button.button.to_string(),
+                ControllerType::XBox => [
+                    "a",
+                    "b",
+                    "x",
+                    "y",
+                    "left bumper",
+                    "right bumper",
+                    "back",
+                    "start",
+                    "left stick",
+                    "right stick",
+                ][button.button as usize - 1]
+                    .to_string(),
+                ControllerType::NotBound => "ERROR".to_string(),
+            },
+            ButtonLocation::Pov => match button.button {
+                0 => "pov up",
+                45 => "pov up right",
+                90 => "pov right",
+                135 => "pov down right",
+                180 => "pov down",
+                225 => "pov down left",
+                270 => "pov left",
+                315 => "pov up left",
+                -1 => "no pov",
+                _ => "ERROR",
+            }
+            .to_string(),
+            ButtonLocation::Analog => match self {
+                ControllerType::Generic { buttons: _ } => todo!(),
+                ControllerType::XBox => match button.button {
+                    2 => "left trigger",
+                    3 => "right trigger",
+                    _ => "invalid trigger",
+                }
+                .to_string(),
+                ControllerType::NotBound => "ERROR".to_string(),
+            },
+        }
     }
+
+    pub fn enumerate_analog(&self) -> Box<dyn Iterator<Item = Button>> {
+        match self {
+            ControllerType::Generic { buttons: _ } => Box::new([].into_iter()),
+            ControllerType::XBox => Box::new([Button { button: 2, location: ButtonLocation::Analog }, Button {button: 3, location: ButtonLocation::Analog}].into_iter()),
+            ControllerType::NotBound => Box::new([].into_iter()),
+        }
+    }
+
+    pub fn enumerate_buttons(&self) -> impl Iterator<Item = Button> {
+        (1..=self.num_buttons())
+            .map(|button| Button {
+                button: button.into(),
+                location: ButtonLocation::Button,
+            })
+            .chain(
+                [-1, 0, 45, 90, 135, 180, 225, 270, 315]
+                    .into_iter()
+                    .map(|dir| Button {
+                        button: dir,
+                        location: ButtonLocation::Pov,
+                    }),
+            ).chain(
+                self.enumerate_analog(),
+            )
+    }
+
+    // todo change u8 to actual button type to include pov
+    pub fn show_button_selector(
+        &self,
+        id: Id,
+        filter: &mut String,
+        filter_cache: &mut SingleCash<String, Vec<(String, Button)>>,
+        button: &mut Button,
+        ui: &mut Ui,
+    ) {
+        search_selector::search_selector(
+            id,
+            filter,
+            button,
+            self.enumerate_buttons()
+                .map(|button| (self.button_name(&button), button)),
+            filter_cache,
+            100.0,
+            ui,
+        );
+
+        // ui.add(DragValue::new(button).range(1..=self.num_buttons()));
+    }
+
+    // pub fn show_button_selector_comp(&self, button: &mut u8, ui: &mut Ui) {
+    //     ui.add(DragValue::new(button).range(1..=self.num_buttons()));
+    // }
 
     pub fn valid_binding(&self, binding: Button) -> bool {
         match binding.location {
-            ButtonLocation::Button => 1 <= binding.button && binding.button <= self.num_buttons().into()            ,
+            ButtonLocation::Button => {
+                1 <= binding.button && binding.button <= self.num_buttons().into()
+            }
             ButtonLocation::Pov => match self {
                 ControllerType::NotBound => false,
-                _ => {[-1,0,45,90,135,180,225,270].contains(&binding.button)},
+                _ => [-1, 0, 45, 90, 135, 180, 225, 270].contains(&binding.button),
+            },
+            ButtonLocation::Analog => {
+                match self {
+                    ControllerType::Generic { buttons: _ } => false,
+                    ControllerType::XBox => binding.button == 2 || binding.button == 3,
+                    ControllerType::NotBound => false,
+                }
             },
         }
     }

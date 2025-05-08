@@ -3,16 +3,15 @@ use egui::{Color32, Grid, ScrollArea, Ui};
 use std::collections::HashMap;
 
 use crate::{
-    bindings::{Binding, Button, RunWhen},
-    component::Component,
-    global_state::GlobalEvents,
-    State,
+    bindings::{Binding, Button, RunWhen}, component::Component, global_state::GlobalEvents, search_selector::SingleCash, State
 };
 
 #[derive(Debug)]
 pub struct BindingEditingState {
     controller: u8,
-    button: u8,
+    button: Button,
+    filter: String,
+    cache: SingleCash<String, Vec<(String, Button)>>,
     when: RunWhen,
 }
 
@@ -20,8 +19,10 @@ impl Default for BindingEditingState {
     fn default() -> Self {
         Self {
             controller: Default::default(),
-            button: Default::default(),
+            button: Button { button: 1, location: crate::bindings::ButtonLocation::Button },
             when: RunWhen::WhileTrue,
+            filter: Default::default(),
+            cache: Default::default(),
         }
     }
 }
@@ -56,10 +57,10 @@ impl Component for FromCommands {
                             {
                                 ui.colored_label(
                                     Color32::from_rgb(0xf3, 0x8b, 0xa8),
-                                    binding.to_string(),
+                                    binding.show(env),
                                 );
                             } else {
-                                ui.label(binding.to_string());
+                                ui.label(binding.show(env));
                             }
 
                             if ui.button("X").clicked() {
@@ -81,7 +82,9 @@ impl Component for FromCommands {
                         ui.label("button");
 
                         env.controllers[edit_state.controller as usize]
-                            .show_button_selector(&mut edit_state.button, ui);
+                            .show_button_selector(ui.make_persistent_id(command), &mut edit_state.filter, &mut edit_state.cache, &mut edit_state.button, ui);
+
+                        edit_state.cache.update();
 
                         let run_when = &mut edit_state.when;
 
@@ -89,19 +92,13 @@ impl Component for FromCommands {
 
                         let binding = Binding {
                             controller: edit_state.controller,
-                            button: Button {
-                                button: edit_state.button as i16,
-                                location: crate::bindings::ButtonLocation::Button,
-                            },
+                            button: edit_state.button,
                             during: edit_state.when,
                         };
 
                         if ui.button("add").clicked()
                             && (env.controllers[edit_state.controller as usize].valid_binding(
-                                Button {
-                                    button: edit_state.button as i16,
-                                    location: crate::bindings::ButtonLocation::Button,
-                                },
+                                edit_state.button,
                             ))
                         {
                             output.add_event(GlobalEvents::AddBinding(binding, command.clone()));
