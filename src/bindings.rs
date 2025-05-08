@@ -185,7 +185,7 @@ impl BindingsMap {
 #[derive(Debug, Serialize, Deserialize, Clone, Copy)]
 pub enum ControllerType {
     Generic { buttons: u8 },
-    XBox,
+    XBox { sensitivity: f32 },
     NotBound,
 }
 
@@ -193,7 +193,7 @@ impl ControllerType {
     fn num_buttons(&self) -> u8 {
         match self {
             ControllerType::Generic { buttons } => *buttons,
-            ControllerType::XBox => 10,
+            ControllerType::XBox { .. } => 10,
             ControllerType::NotBound => 0,
         }
     }
@@ -202,7 +202,7 @@ impl ControllerType {
         match button.location {
             ButtonLocation::Button => match self {
                 ControllerType::Generic { .. } => button.button.to_string(),
-                ControllerType::XBox => [
+                ControllerType::XBox { .. } => [
                     "a",
                     "b",
                     "x",
@@ -232,7 +232,7 @@ impl ControllerType {
             .to_string(),
             ButtonLocation::Analog => match self {
                 ControllerType::Generic { buttons: _ } => todo!(),
-                ControllerType::XBox => match button.button {
+                ControllerType::XBox {..} => match button.button {
                     2 => "left trigger",
                     3 => "right trigger",
                     _ => "invalid trigger",
@@ -246,7 +246,7 @@ impl ControllerType {
     pub fn enumerate_analog(&self) -> Box<dyn Iterator<Item = Button>> {
         match self {
             ControllerType::Generic { buttons: _ } => Box::new([].into_iter()),
-            ControllerType::XBox => Box::new([Button { button: 2, location: ButtonLocation::Analog }, Button {button: 3, location: ButtonLocation::Analog}].into_iter()),
+            ControllerType::XBox {..} => Box::new([Button { button: 2, location: ButtonLocation::Analog }, Button {button: 3, location: ButtonLocation::Analog}].into_iter()),
             ControllerType::NotBound => Box::new([].into_iter()),
         }
     }
@@ -302,7 +302,7 @@ impl ControllerType {
             ButtonLocation::Analog => {
                 match self {
                     ControllerType::Generic { buttons: _ } => false,
-                    ControllerType::XBox => binding.button == 2 || binding.button == 3,
+                    ControllerType::XBox { .. } => binding.button == 2 || binding.button == 3,
                     ControllerType::NotBound => false,
                 }
             },

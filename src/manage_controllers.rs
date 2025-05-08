@@ -27,7 +27,7 @@ impl Component for ManageControllers {
                         ui.horizontal(|ui| {
                             if ui.button("set xbox").clicked() {
                                 output.add_event(GlobalEvents::BindController(
-                                    ControllerType::XBox,
+                                    ControllerType::XBox { sensitivity: 0.5 } ,
                                     id as u8,
                                 ));
                             }
@@ -62,9 +62,20 @@ impl Component for ManageControllers {
                             }
                         });
                     }
-                    ControllerType::XBox => {
+                    ControllerType::XBox { sensitivity } => {
                         ui.horizontal(|ui| {
+                            let mut s = *sensitivity;
+
                             ui.label("xbox");
+
+                            ui.label("trigger sensitivity");
+
+                            ui.add(DragValue::new(&mut s).range(0..=1).speed(0.1));
+
+                            if s != *sensitivity {
+                                output.add_event(GlobalEvents::BindController(ControllerType::XBox { sensitivity: s }, id as u8));
+                            }
+
                             if ui.button("remove").clicked() {
                                 output.add_event(GlobalEvents::BindController(
                                     ControllerType::NotBound,

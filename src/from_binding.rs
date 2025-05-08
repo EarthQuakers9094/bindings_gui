@@ -1,6 +1,6 @@
 use std::collections::{BTreeSet, HashMap};
 
-use egui::{popup_below_widget, Color32, DragValue, ScrollArea, Ui};
+use egui::{Color32, DragValue, ScrollArea, Ui};
 
 use crate::{
     bindings::{Binding, Button, RunWhen},
