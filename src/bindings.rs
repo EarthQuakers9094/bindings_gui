@@ -25,26 +25,6 @@ pub struct Button {
     pub(crate) location: ButtonLocation,
 }
 
-// impl Display for Button {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         match self.location {
-//             ButtonLocation::Button => self.button.fmt(f),
-//             ButtonLocation::Pov => match self.button {
-//                 0 => write!(f, "up"),
-//                 45 => write!(f, "up left"),
-//                 90 => write!(f, "right"),
-//                 135 => write!(f, "down right"),
-//                 180 => write!(f, "down"),
-//                 225 => write!(f, "down left"),
-//                 270 => write!(f, "left"),
-//                 315 => write!(f, "up left"),
-//                 -1 => write!(f, "no pov"),
-//                 _ => write!(f, "ERROR"),
-//             },
-//         }
-//     }
-// }
-
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
 pub enum RunWhen {
     OnTrue,
@@ -96,7 +76,7 @@ impl Display for RunWhen {
 pub struct Binding {
     pub controller: u8,
     pub button: Button,
-    pub during: RunWhen, // bad name because when is a reserved keyword in kotlin and im lazy
+    pub during: RunWhen, // bad name because "when" is a reserved keyword in kotlin and im lazy
 }
 
 impl Binding {
@@ -109,12 +89,6 @@ impl Binding {
         )
     }
 }
-
-// impl Display for Binding {
-//     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-//         write!(f, "{}:{}:{}", self.controller, self.button, self.during)
-//     }
-// }
 
 #[derive(Debug, Default)]
 pub(crate) struct BindingsMap {
@@ -314,13 +288,7 @@ impl ControllerType {
             100.0,
             ui,
         );
-
-        // ui.add(DragValue::new(button).range(1..=self.num_buttons()));
     }
-
-    // pub fn show_button_selector_comp(&self, button: &mut u8, ui: &mut Ui) {
-    //     ui.add(DragValue::new(button).range(1..=self.num_buttons()));
-    // }
 
     pub fn valid_binding(&self, binding: Button) -> bool {
         match binding.location {
