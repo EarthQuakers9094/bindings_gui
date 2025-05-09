@@ -121,11 +121,11 @@ impl Component for FromBindings {
                 }
 
                 for ((controller, button), commands) in &env.bindings.binding_to_commands {
-                    ui.horizontal(|ui| {
-                        Self::display_binding(*controller, *button, env, ui, arena);
+                    Self::display_binding(*controller, *button, env, ui, arena);
 
+                    ui.horizontal(|ui| {
                         for (command, when) in commands {
-                            ui.label(bumpalo::format!(in &arena, "{}:{}", command, when).as_str());
+                            ui.label(bumpalo::format!(in &arena, "{} {}", command, when).as_str());
 
                             let keep = !ui.button("X").clicked();
 
@@ -165,7 +165,7 @@ impl Component for FromBindings {
 impl FromBindings {
     fn display_binding(controller: u8, button: Button, env: &State, ui: &mut Ui, arena: &Bump) {
         let text = bumpalo::format!(in &arena,
-            "{}:{}",
+            "{} {} has bindings",
             env.controller_name(controller),
             env.controllers[controller as usize].button_name(&button, arena)
         );

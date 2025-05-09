@@ -4,6 +4,7 @@ use std::{
     fs::{create_dir_all, read_to_string, File},
     io::Write,
     path::PathBuf,
+    process::{Child, Command},
     rc::Rc,
 };
 
@@ -28,14 +29,31 @@ pub enum GlobalEvents {
     Save,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct State {
     pub save_file: PathBuf,
     pub url: Option<String>,
+    pub syncing: bool,
     pub commands: BTreeSet<Rc<String>>,
     pub bindings: BindingsMap,
     pub controllers: [ControllerType; 5],
     pub controller_names: [Rc<String>; 5],
+    pub sync_process: Option<Child>,
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            save_file: Default::default(),
+            url: Default::default(),
+            syncing: true,
+            commands: Default::default(),
+            bindings: Default::default(),
+            controllers: Default::default(),
+            controller_names: Default::default(),
+            sync_process: Default::default(),
+        }
+    }
 }
 
 impl State {
@@ -57,7 +75,7 @@ impl State {
         }
 
         if update {
-            self.write_out()?
+            self.write_out(arena)?
         }
 
         Ok(())
@@ -94,7 +112,7 @@ impl State {
         }
     }
 
-    pub fn write_out(&self) -> Result<()> {
+    pub fn write_out(&mut self, arena: &Bump) -> Result<()> {
         create_dir_all(self.save_file.parent().unwrap())?;
 
         let mut file =
@@ -106,6 +124,26 @@ impl State {
                 .as_bytes(),
         )
         .with_context(|| "failed to save to disk")?;
+
+        match &self.url {
+            Some(url) if self.syncing => {
+                match &mut self.sync_process {
+                    Some(child) => {child.kill()?},
+                    None => {},
+                }
+
+                self.sync_process = Some(
+                    Command::new("scp")
+                        .arg(self.save_file.as_os_str())
+                        .arg(
+                            bumpalo::format!(in &arena, "lvuser@{}:~/deploy/bindings.json", url)
+                                .as_str(),
+                        )
+                        .spawn()?,
+                );
+            }
+            _ => {}
+        }
 
         Ok(())
     }
@@ -128,6 +166,8 @@ impl State {
             bindings: bindings.command_to_bindings.into_owned().into(),
             controllers: bindings.controllers.into_owned(),
             controller_names: bindings.controller_names.into_owned(),
+            syncing: true,
+            sync_process: Default::default(),
         }
     }
 

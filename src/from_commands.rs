@@ -55,7 +55,7 @@ impl Component for FromCommands {
         ui: &mut Ui,
         env: &mut Self::Environment,
         output: &crate::component::EventStream<Self::OutputEvents>,
-        arena: &Bump
+        arena: &Bump,
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             // TODO ADD POV BINDING
@@ -63,7 +63,10 @@ impl Component for FromCommands {
             Grid::new("from_commands_grid").show(ui, |ui| {
                 for command in &env.commands {
                     ui.horizontal(|ui| {
-                        ui.label(command.as_str());
+                        ui.label(
+                            bumpalo::format!(in arena, "{} has bindings", command.as_str())
+                                .as_str(),
+                        );
 
                         for binding in env.bindings.bindings_for_command(command) {
                             if !env.controllers[binding.controller as usize]
@@ -115,7 +118,7 @@ impl Component for FromCommands {
                             &mut edit_state.cache,
                             &mut edit_state.button,
                             ui,
-                            arena
+                            arena,
                         );
 
                         edit_state.cache.update();

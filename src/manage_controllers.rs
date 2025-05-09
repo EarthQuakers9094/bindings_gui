@@ -26,6 +26,7 @@ impl Component for ManageControllers {
     ) {
         ScrollArea::vertical().show(ui, |ui| {
             ui.label("controller slots");
+            ui.separator();
 
             for (id, controller) in env.controllers.iter_mut().enumerate() {
                 ui.horizontal(|ui| {

@@ -17,13 +17,22 @@ mod global_state;
 mod manage_commands;
 mod manage_controllers;
 mod search_selector;
+mod syncing;
+// for when external event loop support is added
+// mod sync_thread;
 
 #[derive(Debug)]
 #[allow(clippy::large_enum_variant)]
 enum App {
-    Initial { error: Option<String> },
+    Initial {
+        error: Option<String>,
+    },
 
-    Running { views: State, tree: DockState<Tab>, arena: Bump },
+    Running {
+        views: State,
+        tree: DockState<Tab>,
+        arena: Bump,
+    },
 }
 
 impl Default for App {
@@ -59,6 +68,10 @@ impl App {
                     tab: Box::new(manage_controllers::ManageControllers {}),
                     name: "manage controllers",
                 },
+                Tab {
+                    tab: Box::new(syncing::SyncingTab {}),
+                    name: "syncing settings",
+                },
             ]),
             arena: Bump::new(),
         }
@@ -70,6 +83,20 @@ impl App {
 }
 
 impl eframe::App for App {
+    fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
+        match self {
+            App::Initial { .. } => {},
+            App::Running { views, .. } => {
+                match &mut views.sync_process {
+                    Some(p) => {
+                        p.kill().unwrap()
+                    },
+                    None => {},
+                }
+            },
+        }
+    }
+
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         catppuccin_egui::set_theme(ctx, catppuccin_egui::MOCHA);
 
@@ -117,6 +144,31 @@ impl eframe::App for App {
                             arena,
                         },
                     );
+
+                match &mut views.sync_process {
+                    Some(child) => match child.try_wait() {
+                        Ok(exit) => match exit {
+                            Some(status) => {
+                                if !status.success() {
+                                    toasts.add(Toast {
+                                        kind: egui_toast::ToastKind::Error,
+                                        text: "failed to sync".into(),
+                                        ..Default::default()
+                                    });
+                                }
+
+                                println!("exited");
+
+                                views.sync_process = None;
+                            }
+                            None => {}                            
+                        },
+                        Err(err) => {
+                            toasts.add(Toast { kind: egui_toast::ToastKind::Error, text: bumpalo::format!(in &arena, "failed to wait on sync process {}", err).as_str().into(), ..Default::default() });
+                        }
+                    },
+                    None => {}
+                }
 
                 toasts.show(ctx);
             }
@@ -199,6 +251,18 @@ fn main() -> Result<(), eframe::Error> {
         viewport: egui::ViewportBuilder::default().with_inner_size((400.0, 300.0)),
         ..eframe::NativeOptions::default()
     };
+
+    // FOR WHEN EXTERNAL EVENTLOOP SUPPORT IS ADDED
+    // let eventloop = EventLoop::<UserEvent>::with_user_event().build().unwrap();
+
+    // eventloop.set_control_flow(winit::event_loop::ControlFlow::Poll);
+
+    // let mut winit_app = eframe::create_native(
+    //     "Bindings",
+    //     native_options,
+    //     Box::new(|_| Ok(Box::<App>::default())),
+    //     &eventloop,
+    // );
 
     eframe::run_native(
         "Bindings",

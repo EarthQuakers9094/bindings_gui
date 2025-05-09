@@ -1,1 +1,1 @@
-{"url":null,"commands":[],"command_to_bindings":{},"controllers":[{"XBox":{"sensitivity":0.3}},"NotBound","NotBound","NotBound","NotBound"],"controller_names":["","","","",""]}
+{"url":"10.90.94.2","commands":["devour coral","launch coral"],"command_to_bindings":{"devour coral":[],"launch coral":[{"controller":0,"button":{"button":3,"location":"Button"},"during":"WhileTrue"}]},"controllers":[{"XBox":{"sensitivity":0.3}},{"Generic":{"buttons":0}},{"Generic":{"buttons":0}},"NotBound","NotBound"],"controller_names":["xbox","left joystick","right joystick","",""]}

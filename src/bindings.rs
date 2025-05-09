@@ -93,7 +93,7 @@ pub struct Binding {
 impl Binding {
     pub fn show<'a>(&self, env: &State, arena: &'a Bump) -> &'a str {
         bumpalo::format!(in arena,
-            "{}:{}:{}",
+            "on {} to {} {}",
             env.controller_name(self.controller),
             env.controllers[self.controller as usize].button_name(&self.button, arena),
             self.during
