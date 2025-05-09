@@ -136,7 +136,7 @@ impl State {
                     Command::new("scp")
                         .arg(self.save_file.as_os_str())
                         .arg(
-                            bumpalo::format!(in &arena, "lvuser@{}:~/deploy/bindings.json", url)
+                            bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/bindings.json", url)
                                 .as_str(),
                         )
                         .spawn()?,

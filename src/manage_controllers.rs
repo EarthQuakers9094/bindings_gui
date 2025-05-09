@@ -85,7 +85,7 @@ impl Component for ManageControllers {
                         ControllerType::XBox { sensitivity } => {
                             ui.label("xbox");
 
-                            ui.label("trigger sensitivity");
+                            ui.label("trigger sensitivity (can't live reload)");
 
                             ui.add(DragValue::new(sensitivity).range(0..=1).speed(0.1));
 
