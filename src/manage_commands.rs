@@ -1,17 +1,21 @@
+use std::{collections::HashMap, rc::Rc};
+
 use bumpalo::Bump;
-use egui::{ScrollArea, Ui};
+use egui::{ScrollArea, TextEdit, Ui};
 
 use crate::{component::Component, global_state::GlobalEvents, State};
 
 #[derive(Debug)]
 pub(crate) struct ManageTab {
     pub adding: String,
+    pub rename: HashMap<Rc<String>, String>,
 }
 
 impl Default for ManageTab {
     fn default() -> Self {
         Self {
             adding: "".to_string(),
+            rename: HashMap::new(),
         }
     }
 }
@@ -47,7 +51,19 @@ impl Component for ManageTab {
 
             for command in &env.commands {
                 ui.horizontal(|ui| {
-                    ui.label(command.as_str());
+
+                    let rename = self.rename.entry(command.clone()).or_insert_with(|| command.to_string());
+
+                    let resp = ui.add(TextEdit::singleline(rename).frame(false).desired_width(100.0));
+
+                    if resp.lost_focus() {
+                        if env.commands.contains(rename) {
+                            output.add_event(GlobalEvents::DisplayError("command of that name already exists".to_string()));
+                        } else {
+                            output.add_event(GlobalEvents::RenameCommand(command.clone(), Rc::new(rename.clone())));
+                        }
+                    }
+
                     if ui.button("X").clicked() {
                         let valid_remove = !env.bindings.is_used(command);
 

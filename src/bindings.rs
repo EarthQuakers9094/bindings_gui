@@ -166,6 +166,23 @@ impl BindingsMap {
             .cloned()
     }
 
+    pub(crate) fn rename_binding(&mut self, from: Rc<String>, to: Rc<String>) {
+        let bindings = self.command_to_bindings.remove(&from).unwrap();
+
+        for binding in &bindings {
+            for (command, when) in self
+                .binding_to_commands
+                .get_mut(&(binding.controller, binding.button)).unwrap()
+            {
+                if *command == from {
+                    *command = to.clone();
+                }
+            }
+        }
+
+        self.command_to_bindings.insert(to, bindings);
+    }
+
     pub(crate) fn remove_binding(&mut self, command: &String, binding: Binding) {
         self.command_to_bindings
             .get_mut(command)

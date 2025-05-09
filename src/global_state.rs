@@ -27,6 +27,7 @@ pub enum GlobalEvents {
     RemoveCommand(Rc<String>),
     DisplayError(String),
     Save,
+    RenameCommand(Rc<String>, Rc<String>),
 }
 
 #[derive(Debug)]
@@ -109,6 +110,12 @@ impl State {
                 false
             }
             GlobalEvents::Save => true,
+            GlobalEvents::RenameCommand(old, new) => {
+                self.bindings.rename_binding(old.clone(), new.clone());
+                self.commands.remove(&old);
+                self.commands.insert(new);
+                true
+            },
         }
     }
 
@@ -128,8 +135,8 @@ impl State {
         match &self.url {
             Some(url) if self.syncing => {
                 match &mut self.sync_process {
-                    Some(child) => {child.kill()?},
-                    None => {},
+                    Some(child) => child.kill()?,
+                    None => {}
                 }
 
                 self.sync_process = Some(
