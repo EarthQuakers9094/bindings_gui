@@ -252,7 +252,7 @@ impl State {
             sync_process: Default::default(),
             deploy_dir: path,
             profile: Rc::new(profile_name),
-            profiles: profiles,
+            profiles,
         }
     }
 

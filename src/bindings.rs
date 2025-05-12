@@ -390,7 +390,7 @@ pub(crate) struct Profile<'a> {
     pub(crate) controller_names: Cow<'a, [Rc<String>; 5]>,
 }
 
-impl<'a> Profile<'_> {
+impl Profile<'_> {
     pub fn get_from(deploy: &Path, profile: &str) -> Result<Self> {
         let mut path = deploy.to_owned();
 
@@ -447,7 +447,7 @@ pub(crate) struct SaveData<'a> {
     pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
 }
 
-impl<'a> SaveData<'_> {
+impl SaveData<'_> {
     pub fn from_directory(deploy: &Path) -> Result<Option<Self>> {
         let mut path = deploy.to_owned();
 

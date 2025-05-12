@@ -10,7 +10,7 @@ use crate::{
     bindings::{Binding, Button, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
-    search_selector::{search_selector, SelectorCache, SingleCache},
+    search_selector::{search_selector, SelectorCache},
     State,
 };
 
@@ -178,7 +178,7 @@ impl FromBindings {
     }
 
     fn add_widgets(
-        cache: &mut SingleCache<String, Vec<(Rc<String>, Rc<String>)>>,
+        cache: &mut SelectorCache<Rc<String>>,
         ui: &mut Ui,
         env: &State,
         output: &EventStream<GlobalEvents>,
