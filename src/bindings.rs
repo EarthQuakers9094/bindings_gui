@@ -1,5 +1,10 @@
 use std::{
-    borrow::Cow, collections::{BTreeMap, BTreeSet}, fmt::Display, fs::{read_dir, read_to_string}, path::Path, rc::Rc
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+    fs::{read_dir, read_to_string},
+    path::Path,
+    rc::Rc,
 };
 
 use bumpalo::Bump;
@@ -10,7 +15,8 @@ use anyhow::{Context, Result};
 
 use crate::{
     global_state::State,
-    search_selector::{self, SingleCache}, ProgramError,
+    search_selector::{self, SingleCache},
+    ProgramError,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
@@ -171,7 +177,8 @@ impl BindingsMap {
         for binding in &bindings {
             for (command, _) in self
                 .binding_to_commands
-                .get_mut(&(binding.controller, binding.button)).unwrap()
+                .get_mut(&(binding.controller, binding.button))
+                .unwrap()
             {
                 if *command == from {
                     *command = to.clone();
@@ -381,10 +388,9 @@ pub(crate) struct Profile<'a> {
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<Rc<String>, Vec<Binding>>>,
     pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
     pub(crate) controller_names: Cow<'a, [Rc<String>; 5]>,
-
 }
 
-impl<'a> Profile<'a> {
+impl<'a> Profile<'_> {
     pub fn get_from(deploy: &Path, profile: &str) -> Result<Self> {
         let mut path = deploy.to_owned();
 
@@ -413,7 +419,6 @@ impl<'a> Profile<'a> {
 
         let profiles = if path.is_dir() {
             read_dir(&path)?
-                .into_iter()
                 .map(|path| {
                     let path = path?;
 
@@ -442,7 +447,7 @@ pub(crate) struct SaveData<'a> {
     pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
 }
 
-impl<'a> SaveData<'a> {
+impl<'a> SaveData<'_> {
     pub fn from_directory(deploy: &Path) -> Result<Option<Self>> {
         let mut path = deploy.to_owned();
 
@@ -464,5 +469,4 @@ impl<'a> SaveData<'a> {
 
         Ok(Some(bindings))
     }
-
 }

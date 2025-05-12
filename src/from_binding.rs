@@ -10,7 +10,7 @@ use crate::{
     bindings::{Binding, Button, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
-    search_selector::{search_selector, SingleCache},
+    search_selector::{search_selector, SelectorCache, SingleCache},
     State,
 };
 
@@ -38,10 +38,10 @@ pub struct FromBindings {
     pub controller: u8,
     pub bindings: BTreeSet<(u8, Button)>,
     pub button_filter: String,
-    pub button_filter_cache: SingleCache<String, Vec<(Rc<String>, Button)>>,
-    pub filtered_commands: SingleCache<String, Vec<(Rc<String>, Rc<String>)>>,
+    pub button_filter_cache: SelectorCache<Button>,
+    pub filtered_commands: SelectorCache<Rc<String>>,
     pub controller_filter: String,
-    pub controller_cache: SingleCache<String, Vec<(Rc<String>, u8)>>,
+    pub controller_cache: SelectorCache<u8>,
 }
 
 impl Component for FromBindings {

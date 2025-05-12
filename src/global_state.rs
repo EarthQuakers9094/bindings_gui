@@ -145,8 +145,7 @@ impl State {
 
         path.push("profile");
 
-        let mut file: File =
-            File::create(path).with_context(|| "failed to create profile file")?;   
+        let mut file: File = File::create(path).with_context(|| "failed to create profile file")?;
 
         file.write_all(profile.as_bytes())?;
 
@@ -200,9 +199,8 @@ impl State {
 
         match &self.url {
             Some(url) if self.syncing => {
-                match &mut self.sync_process {
-                    Some(child) => child.kill()?,
-                    None => {}
+                if let Some(child) = &mut self.sync_process {
+                    child.kill()?
                 }
 
                 self.sync_process = Some(
@@ -276,14 +274,14 @@ impl State {
         }
 
         let profile_name = match read_to_string(&path) {
-            Ok(a) => {a},
+            Ok(a) => a,
             Err(_err) => {
                 let mut file = File::create_new(&path)?;
 
                 file.write_all("default".as_bytes())?;
 
                 "default".to_string()
-            },
+            }
         };
 
         path.pop();

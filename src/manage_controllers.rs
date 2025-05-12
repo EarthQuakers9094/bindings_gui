@@ -42,9 +42,7 @@ impl Component for ManageControllers {
 
                         let s = Rc::make_mut(&mut env.controller_names[id]);
 
-                        TextEdit::singleline(s)
-                            .desired_width(100.0)
-                            .show(ui);
+                        TextEdit::singleline(s).desired_width(100.0).show(ui);
 
                         if before != s.as_str() {
                             output.add_event(GlobalEvents::Save);

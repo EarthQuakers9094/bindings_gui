@@ -7,7 +7,7 @@ use crate::{
     bindings::{Binding, Button, RunWhen},
     component::Component,
     global_state::GlobalEvents,
-    search_selector::{search_selector, SingleCache},
+    search_selector::{search_selector, SelectorCache},
     State,
 };
 
@@ -16,11 +16,11 @@ pub struct BindingEditingState {
     controller: u8,
     button: Button,
     filter: String,
-    cache: SingleCache<String, Vec<(Rc<String>, Button)>>,
+    cache: SelectorCache<Button>,
     when: RunWhen,
 
     controller_filter: String,
-    controller_cache: SingleCache<String, Vec<(Rc<String>, u8)>>,
+    controller_cache: SelectorCache<u8>,
 }
 
 impl Default for BindingEditingState {

@@ -16,9 +16,9 @@ mod from_commands;
 mod global_state;
 mod manage_commands;
 mod manage_controllers;
+mod profiles;
 mod search_selector;
 mod syncing;
-mod profiles;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -92,15 +92,12 @@ impl App {
 impl eframe::App for App {
     fn on_exit(&mut self, _gl: Option<&eframe::glow::Context>) {
         match self {
-            App::Initial { .. } => {},
+            App::Initial { .. } => {}
             App::Running { views, .. } => {
-                match &mut views.sync_process {
-                    Some(p) => {
-                        p.kill().unwrap()
-                    },
-                    None => {},
+                if let Some(p) = &mut views.sync_process {
+                    p.kill().unwrap()
                 }
-            },
+            }
         }
     }
 
@@ -152,10 +149,10 @@ impl eframe::App for App {
                         },
                     );
 
-                match &mut views.sync_process {
-                    Some(child) => match child.try_wait() {
-                        Ok(exit) => match exit {
-                            Some(status) => {
+                if let Some(child) = &mut views.sync_process {
+                    match child.try_wait() {
+                        Ok(exit) => {
+                            if let Some(status) = exit {
                                 if !status.success() {
                                     toasts.add(Toast {
                                         kind: egui_toast::ToastKind::Error,
@@ -168,13 +165,11 @@ impl eframe::App for App {
 
                                 views.sync_process = None;
                             }
-                            None => {}                            
-                        },
+                        }
                         Err(err) => {
                             toasts.add(Toast { kind: egui_toast::ToastKind::Error, text: bumpalo::format!(in &arena, "failed to wait on sync process {}", err).as_str().into(), ..Default::default() });
                         }
-                    },
-                    None => {}
+                    }
                 }
 
                 toasts.show(ctx);

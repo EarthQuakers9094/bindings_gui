@@ -51,16 +51,27 @@ impl Component for ManageTab {
 
             for command in &env.commands {
                 ui.horizontal(|ui| {
+                    let rename = self
+                        .rename
+                        .entry(command.clone())
+                        .or_insert_with(|| command.to_string());
 
-                    let rename = self.rename.entry(command.clone()).or_insert_with(|| command.to_string());
-
-                    let resp = ui.add(TextEdit::singleline(rename).frame(false).desired_width(100.0));
+                    let resp = ui.add(
+                        TextEdit::singleline(rename)
+                            .frame(false)
+                            .desired_width(100.0),
+                    );
 
                     if resp.lost_focus() {
                         if env.commands.contains(rename) {
-                            output.add_event(GlobalEvents::DisplayError("command of that name already exists".to_string()));
+                            output.add_event(GlobalEvents::DisplayError(
+                                "command of that name already exists".to_string(),
+                            ));
                         } else {
-                            output.add_event(GlobalEvents::RenameCommand(command.clone(), Rc::new(rename.clone())));
+                            output.add_event(GlobalEvents::RenameCommand(
+                                command.clone(),
+                                Rc::new(rename.clone()),
+                            ));
                         }
                     }
 

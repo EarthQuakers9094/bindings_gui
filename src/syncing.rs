@@ -22,7 +22,7 @@ impl Component for SyncingTab {
     ) {
         match &mut env.url {
             Some(url) => {
-                let before = bumpalo::collections::String::from_str_in(&url, arena);
+                let before = bumpalo::collections::String::from_str_in(url, arena);
 
                 ui.horizontal(|ui| {
                     ui.label("url: ");
@@ -37,15 +37,15 @@ impl Component for SyncingTab {
                     if ui.button("disable syncing").clicked() {
                         env.syncing = false;
                     }
-                } else {
-                    if ui.button("enable syncing").clicked() {
-                        env.syncing = true;
-                    }
+                } else if ui.button("enable syncing").clicked() {
+                    env.syncing = true;
                 }
-            },
-            None => { if ui.button("setup syncing").clicked() {
-                env.url = Some("".to_string());
-            } },
+            }
+            None => {
+                if ui.button("setup syncing").clicked() {
+                    env.url = Some("".to_string());
+                }
+            }
         }
     }
 }

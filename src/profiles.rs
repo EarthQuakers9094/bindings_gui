@@ -2,22 +2,16 @@ use std::{mem, rc::Rc};
 
 use crate::{
     global_state::{GlobalEvents, State},
-    search_selector::{search_selector, SingleCache},
+    search_selector::{search_selector, SelectorCache},
     Component,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub(crate) struct ProfilesTab {
     pub name: String,
     pub filter: String,
     pub profile_selection: Rc<String>,
-    pub filter_cache: SingleCache<String, Vec<(Rc<String>, Rc<String>)>>
-}
-
-impl Default for ProfilesTab {
-    fn default() -> Self {
-        Self { name: Default::default(), filter: Default::default(), profile_selection: Default::default(), filter_cache: Default::default() }
-    }
+    pub filter_cache: SelectorCache<Rc<String>>,
 }
 
 impl Component for ProfilesTab {
@@ -48,14 +42,14 @@ impl Component for ProfilesTab {
             self.profile_selection = env.profile.clone();
 
             if search_selector(
-                            ui.make_persistent_id("profiles selector"),
-                            &mut self.filter,
-                            &mut self.profile_selection,
-                            env.profiles.iter().map(|s| (s.clone(), s.clone())),
-                            &mut self.filter_cache,
-                            300.0,
-                            ui,
-                        ) {
+                ui.make_persistent_id("profiles selector"),
+                &mut self.filter,
+                &mut self.profile_selection,
+                env.profiles.iter().map(|s| (s.clone(), s.clone())),
+                &mut self.filter_cache,
+                300.0,
+                ui,
+            ) {
                 output.add_event(GlobalEvents::SetProfile(self.profile_selection.clone()));
             };
         });

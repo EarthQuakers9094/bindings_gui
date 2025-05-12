@@ -32,16 +32,20 @@ impl<K, V> SingleCache<K, V> {
     }
 }
 
+pub type SelectorCache<A> = SingleCache<String, Vec<(Rc<String>, A)>>;
+
 pub(crate) fn search_selector<A>(
     id: Id,
     text: &mut String,
     selection: &mut A,
     options: impl Iterator<Item = (Rc<String>, A)>,
-    cache: &mut SingleCache<String, Vec<(Rc<String>, A)>>,
+    cache: &mut SelectorCache<A>,
     width: f32,
     ui: &mut Ui,
-) -> bool 
-where A: Clone {
+) -> bool
+where
+    A: Clone,
+{
     let edit = ui.add(TextEdit::singleline(text).desired_width(width));
 
     let mut changed = false;
@@ -62,7 +66,7 @@ where A: Clone {
                     .take(10)
                     .collect::<Vec<_>>()
             });
-            
+
             if vals.len() == 1 {
                 *selection = vals[0].1.clone();
             }
