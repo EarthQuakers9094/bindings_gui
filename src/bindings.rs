@@ -1,10 +1,5 @@
 use std::{
-    borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
-    fmt::Display,
-    fs::{read_dir, read_to_string},
-    path::Path,
-    rc::Rc,
+    borrow::Cow, collections::{BTreeMap, BTreeSet}, fmt::Display, fs::{read_dir, read_to_string}, path::Path, rc::Rc
 };
 
 use bumpalo::Bump;
@@ -14,9 +9,7 @@ use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
 
 use crate::{
-    global_state::State,
-    search_selector::{self, SingleCache},
-    ProgramError,
+    constants::Constants, global_state::State, search_selector::{self, SingleCache}, ProgramError
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
@@ -388,6 +381,7 @@ pub(crate) struct Profile<'a> {
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<Rc<String>, Vec<Binding>>>,
     pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
     pub(crate) controller_names: Cow<'a, [Rc<String>; 5]>,
+    pub(crate) constants: Cow<'a, Constants>,
 }
 
 impl Profile<'_> {
@@ -445,6 +439,7 @@ impl Profile<'_> {
 pub(crate) struct SaveData<'a> {
     pub(crate) url: Cow<'a, Option<String>>,
     pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
+    pub(crate) constants: Cow<'a, Constants>,
 }
 
 impl SaveData<'_> {

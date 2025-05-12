@@ -16,6 +16,7 @@ use egui_toast::{Toast, Toasts};
 use crate::{
     bindings::{self, Binding, BindingsMap, ControllerType, Profile, SaveData},
     component::EventStream,
+    constants::{Constants, OptionLocation},
     ProgramError, Tab,
 };
 
@@ -30,6 +31,8 @@ pub enum GlobalEvents {
     RenameCommand(Rc<String>, Rc<String>),
     AddProfile(String),
     SetProfile(Rc<String>),
+    SetOption(OptionLocation, Constants, bool),
+    RemoveOption(OptionLocation, bool),
 }
 
 #[derive(Debug)]
@@ -44,6 +47,8 @@ pub struct State {
     pub sync_process: Option<Child>,
     pub profile: Rc<String>,
     pub profiles: Vec<Rc<String>>,
+    pub constants: Constants,
+    pub driver_constants: Constants,
 }
 
 impl Default for State {
@@ -59,6 +64,8 @@ impl Default for State {
             deploy_dir: PathBuf::default(),
             profile: Rc::new("default".to_string()),
             profiles: Default::default(),
+            constants: Default::default(),
+            driver_constants: Default::default(),
         }
     }
 }
@@ -135,6 +142,26 @@ impl State {
                 };
                 false
             }
+            GlobalEvents::SetOption(key, constant, driver) => {
+                let constants = if driver {
+                    &mut self.driver_constants
+                } else {
+                    &mut self.constants
+                };
+
+                constants.set_key_in(key, constant)
+            }
+            GlobalEvents::RemoveOption(key, driver) => {
+                let constants = if driver {
+                    &mut self.driver_constants
+                } else {
+                    &mut self.constants
+                };
+
+                constants.remove_key(&key);
+
+                true
+            },
         }
     }
 
@@ -148,8 +175,6 @@ impl State {
         let mut file: File = File::create(path).with_context(|| "failed to create profile file")?;
 
         file.write_all(profile.as_bytes())?;
-
-        println!("just wrote file");
 
         let profile: Profile<'static> = self.get_profile(profile.as_str())?;
 
@@ -225,6 +250,7 @@ impl State {
             command_to_bindings: Cow::Borrowed(&self.bindings.command_to_bindings),
             controllers: Cow::Borrowed(&self.controllers),
             controller_names: Cow::Borrowed(&self.controller_names),
+            constants: Cow::Borrowed(&self.driver_constants),
         }
     }
 
@@ -232,6 +258,7 @@ impl State {
         SaveData {
             url: Cow::Borrowed(&self.url),
             commands: Cow::Borrowed(&self.commands),
+            constants: Cow::Borrowed(&self.constants),
         }
     }
 
@@ -253,6 +280,8 @@ impl State {
             deploy_dir: path,
             profile: Rc::new(profile_name),
             profiles,
+            constants: bindings.constants.into_owned(),
+            driver_constants: profile.constants.into_owned(),
         }
     }
 
@@ -264,6 +293,8 @@ impl State {
         path.push("src");
         path.push("main");
         path.push("deploy");
+
+        create_dir_all(&path)?;
 
         path.push("profile");
 
@@ -289,11 +320,13 @@ impl State {
         let bindings = match SaveData::from_directory(&path)? {
             Some(a) => a,
             None => {
+                let profile_name = Rc::new(profile_name);
                 return Ok(Self {
                     deploy_dir: path,
-                    profile: Rc::new(profile_name),
+                    profile: profile_name.clone(),
+                    profiles: vec![profile_name],
                     ..Default::default()
-                })
+                });
             }
         };
 

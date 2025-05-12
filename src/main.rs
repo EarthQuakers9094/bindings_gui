@@ -19,6 +19,8 @@ mod manage_controllers;
 mod profiles;
 mod search_selector;
 mod syncing;
+mod constants;
+mod constants_tab;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -79,6 +81,12 @@ impl App {
                     }),
                     name: "profiles",
                 },
+                Tab {
+                    tab: Box::new(constants_tab::ConstantsTab {
+                        ..Default::default()
+                    }),
+                    name: "constants",
+                }
             ]),
             arena: Bump::new(),
         }

@@ -69,6 +69,7 @@ where
 
             if vals.len() == 1 {
                 *selection = vals[0].1.clone();
+                changed = true;
             }
 
             for (name, value) in vals {
