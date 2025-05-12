@@ -180,7 +180,7 @@ impl State {
             File::create(&save_file).with_context(|| "failed to create file to save to")?;
 
         file.write_all(
-            serde_json::to_string(&self.to_savedata())
+            serde_json::to_string_pretty(&self.to_savedata())
                 .unwrap()
                 .as_bytes(),
         )?;
@@ -191,7 +191,7 @@ impl State {
             File::create(&profile).with_context(|| "failed to create file to savce to")?;
 
         file.write_all(
-            serde_json::to_string(&self.to_profile_data())
+            serde_json::to_string_pretty(&self.to_profile_data())
                 .unwrap()
                 .as_bytes(),
         )
