@@ -18,6 +18,7 @@ mod manage_commands;
 mod manage_controllers;
 mod search_selector;
 mod syncing;
+mod profiles;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -71,6 +72,12 @@ impl App {
                 Tab {
                     tab: Box::new(syncing::SyncingTab {}),
                     name: "syncing settings",
+                },
+                Tab {
+                    tab: Box::new(profiles::ProfilesTab {
+                        ..Default::default()
+                    }),
+                    name: "profiles",
                 },
             ]),
             arena: Bump::new(),

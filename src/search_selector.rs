@@ -40,8 +40,11 @@ pub(crate) fn search_selector<A>(
     cache: &mut SingleCache<String, Vec<(Rc<String>, A)>>,
     width: f32,
     ui: &mut Ui,
-) where A: Clone {
+) -> bool 
+where A: Clone {
     let edit = ui.add(TextEdit::singleline(text).desired_width(width));
+
+    let mut changed = false;
 
     if edit.gained_focus() {
         ui.memory_mut(|mem| mem.open_popup(id));
@@ -66,6 +69,7 @@ pub(crate) fn search_selector<A>(
 
             for (name, value) in vals {
                 if ui.button(name.as_str()).clicked() {
+                    changed = true;
                     *selection = value.clone();
                     ui.memory_mut(|mem| mem.close_popup());
                     text.clear();
@@ -75,4 +79,6 @@ pub(crate) fn search_selector<A>(
             }
         },
     );
+
+    changed
 }

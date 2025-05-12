@@ -1,17 +1,16 @@
 use std::{
-    borrow::Cow,
-    collections::{BTreeMap, BTreeSet},
-    fmt::Display,
-    rc::Rc,
+    borrow::Cow, collections::{BTreeMap, BTreeSet}, fmt::Display, fs::{read_dir, read_to_string}, path::Path, rc::Rc
 };
 
 use bumpalo::Bump;
 use egui::{ComboBox, Id, Ui};
 use serde::{Deserialize, Serialize};
 
+use anyhow::{Context, Result};
+
 use crate::{
     global_state::State,
-    search_selector::{self, SingleCache},
+    search_selector::{self, SingleCache}, ProgramError,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]
@@ -170,7 +169,7 @@ impl BindingsMap {
         let bindings = self.command_to_bindings.remove(&from).unwrap();
 
         for binding in &bindings {
-            for (command, when) in self
+            for (command, _) in self
                 .binding_to_commands
                 .get_mut(&(binding.controller, binding.button)).unwrap()
             {
@@ -378,10 +377,92 @@ impl ControllerType {
 }
 
 #[derive(Debug, Serialize, Deserialize, Default)]
-pub(crate) struct SaveData<'a> {
-    pub(crate) url: Cow<'a, Option<String>>,
-    pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
+pub(crate) struct Profile<'a> {
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<Rc<String>, Vec<Binding>>>,
     pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
     pub(crate) controller_names: Cow<'a, [Rc<String>; 5]>,
+
+}
+
+impl<'a> Profile<'a> {
+    pub fn get_from(deploy: &Path, profile: &str) -> Result<Self> {
+        let mut path = deploy.to_owned();
+
+        path.push("bindings");
+        path.push(format!("{profile}.json"));
+
+        if path.is_dir() {
+            return Err(ProgramError::ExistingDirectoryAt(path))?;
+        }
+
+        if !path.exists() {
+            return Ok(Default::default());
+        }
+
+        let file = read_to_string(path)?;
+
+        let profile: Profile = serde_json::from_str(&file)?;
+
+        Ok(profile)
+    }
+
+    pub fn get_profiles(deploy: &Path) -> Result<Vec<Rc<String>>> {
+        let mut path = deploy.to_owned();
+
+        path.push("bindings");
+
+        let profiles = if path.is_dir() {
+            read_dir(&path)?
+                .into_iter()
+                .map(|path| {
+                    let path = path?;
+
+                    Ok(Rc::new(
+                        path.file_name()
+                            .into_string()
+                            .unwrap()
+                            .split_once('.')
+                            .with_context(|| "failed to get profile name for file")?
+                            .0
+                            .to_string(),
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?
+        } else {
+            vec![]
+        };
+
+        Ok(profiles)
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Default)]
+pub(crate) struct SaveData<'a> {
+    pub(crate) url: Cow<'a, Option<String>>,
+    pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
+}
+
+impl<'a> SaveData<'a> {
+    pub fn from_directory(deploy: &Path) -> Result<Option<Self>> {
+        let mut path = deploy.to_owned();
+
+        path.push("bindings.json");
+
+        if path.is_dir() {
+            // return is here just to convice the borrow checker that this path never
+            // continues executing the function
+            return Err(ProgramError::ExistingDirectoryAt(path))?;
+        }
+
+        if !path.exists() {
+            return Ok(None);
+        }
+
+        let file = read_to_string(&path)?;
+
+        let bindings: SaveData = serde_json::from_str(&file)?;
+
+        Ok(Some(bindings))
+    }
+
 }
