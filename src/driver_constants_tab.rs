@@ -1,46 +1,19 @@
-use std::{
-    collections::{BTreeMap, HashMap},
-    mem,
-    rc::Rc,
-};
+use std::{collections::BTreeMap, rc::Rc};
 
 use bumpalo::Bump;
 use egui::{collapsing_header::CollapsingState, DragValue, ScrollArea, Ui};
 
 use crate::{
     component::EventStream,
-    constants::{Constants, ConstantsType, OptionLocation},
+    constants::{Constants, OptionLocation},
     global_state::{GlobalEvents, State},
-    search_selector::SelectorCache,
     Component,
 };
 
 #[derive(Debug, Default)]
-pub struct EditingStates {
-    t: ConstantsType,
-    name: String,
-    type_filter: String,
-    type_filter_cache: SelectorCache<ConstantsType>,
+pub struct DriverConstantsTab {}
 
-    driver_type: ConstantsType,
-    driver_type_filter: String,
-    driver_type_filter_cache: SelectorCache<ConstantsType>,
-}
-
-#[derive(Debug)]
-pub struct ConstantsTab {
-    pub add: HashMap<OptionLocation, EditingStates>,
-}
-
-impl Default for ConstantsTab {
-    fn default() -> Self {
-        Self {
-            add: Default::default(),
-        }
-    }
-}
-
-impl Component for ConstantsTab {
+impl Component for DriverConstantsTab {
     type OutputEvents = GlobalEvents;
 
     type Environment = State;
@@ -55,34 +28,45 @@ impl Component for ConstantsTab {
         let mut modified = false;
 
         ScrollArea::vertical().show(ui, |ui| {
-            let constants = &mut env.constants;
+            let constants = &mut env.driver_constants;
 
-            self.add_dialog(Rc::new(Vec::new()), output, arena, ui);
-
-            match constants {
+            match &env.constants {
                 Constants::Object { map } => {
-                    for (key, value) in map.iter_mut() {
+                    for (key, value) in map.iter() {
                         match value {
                             Constants::Object { map } => {
                                 modified |= self.show_object(
                                     key.clone(),
                                     map,
+                                    constants
+                                        .make_object_mut()
+                                        .entry(key.clone())
+                                        .or_insert(Constants::Object {
+                                            map: BTreeMap::new(),
+                                        })
+                                        .make_object_mut(),
                                     Rc::new(Vec::new()),
                                     output,
                                     arena,
                                     ui,
                                 );
                             }
-                            _ => {
+
+                            Constants::Driver { default } => {
                                 modified |= Self::show_value(
                                     key.clone(),
-                                    Rc::new(Vec::new()),
-                                    value,
+                                    constants
+                                        .make_object_mut()
+                                        .entry(key.clone())
+                                        .or_insert(Constants::None)
+                                        .make_mut(default),
+                                    &default,
                                     ui,
-                                    output,
                                     arena,
-                                )
+                                );
                             }
+
+                            _ => {}
                         }
                     }
                 }
@@ -99,69 +83,11 @@ impl Component for ConstantsTab {
     }
 }
 
-impl ConstantsTab {
-    fn add_dialog(
-        &mut self,
-        mut key: Rc<Vec<Rc<String>>>,
-        output: &EventStream<GlobalEvents>,
-        arena: &Bump,
-        ui: &mut Ui,
-    ) {
-        let state = match self.add.get_mut(&key) {
-            Some(a) => a,
-            None => {
-                self.add.insert(key.clone(), Default::default());
-                self.add.get_mut(&key).unwrap()
-            }
-        };
-
-        ui.horizontal(|ui| {
-            ui.label("name:");
-            ui.text_edit_singleline(&mut state.name);
-
-            ui.label("type:");
-            state.t.selector(
-                &mut state.type_filter,
-                &mut state.type_filter_cache,
-                ui,
-                false,
-                arena,
-                ui.make_persistent_id(("adding id", &key)),
-            );
-
-            if state.t == ConstantsType::Driver {
-                state.driver_type.selector(
-                    &mut state.driver_type_filter,
-                    &mut state.driver_type_filter_cache,
-                    ui,
-                    true,
-                    arena,
-                    ui.make_persistent_id(("adding id driver", &key)),
-                );
-            }
-
-            if ui.button("add").clicked() {
-                if state.name == "" {
-                    output.add_event(GlobalEvents::DisplayError(
-                        "no name provided for event".to_string(),
-                    ));
-                    return;
-                }
-
-                let k = Rc::make_mut(&mut key);
-                k.push(Rc::new(mem::take(&mut state.name)));
-
-                output.add_event(GlobalEvents::AddOption(
-                    key,
-                    Constants::default_for_type(state.t, state.driver_type),
-                ));
-            }
-        });
-    }
-
+impl DriverConstantsTab {
     fn show_object(
         &mut self,
         name: Rc<String>,
+        map: &BTreeMap<Rc<String>, Constants>,
         constants: &mut BTreeMap<Rc<String>, Constants>,
         mut key_path: OptionLocation,
         output: &EventStream<GlobalEvents>,
@@ -181,31 +107,41 @@ impl ConstantsTab {
         )
         .show_header(ui, |ui| {
             ui.label(name.as_str());
-            if constants.is_empty() {
-                if ui.button("X").clicked() {
-                    output.add_event(GlobalEvents::RemoveOption(key_path.clone()));
-                }
-            }
         })
         .body(|ui| {
-            self.add_dialog(key_path.clone(), output, arena, ui);
-
-            for (key, value) in constants {
+            for (key, value) in map {
                 match value {
                     Constants::Object { map } => {
-                        modified |=
-                            self.show_object(key.clone(), map, key_path.clone(), output, arena, ui);
-                    }
-                    _ => {
-                        modified |= Self::show_value(
+                        modified |= self.show_object(
                             key.clone(),
+                            map,
+                            constants
+                                .entry(key.clone())
+                                .or_insert(Constants::Object {
+                                    map: BTreeMap::new(),
+                                })
+                                .make_object_mut(),
                             key_path.clone(),
-                            value,
-                            ui,
                             output,
                             arena,
-                        )
+                            ui,
+                        );
                     }
+
+                    Constants::Driver { default } => {
+                        modified |= Self::show_value(
+                            key.clone(),
+                            constants
+                                .entry(key.clone())
+                                .or_insert(Constants::None)
+                                .make_mut(default),
+                            &default,
+                            ui,
+                            arena,
+                        );
+                    }
+
+                    _ => {}
                 }
             }
         });
@@ -215,20 +151,17 @@ impl ConstantsTab {
 
     fn show_value(
         name: Rc<String>,
-        mut key_path: OptionLocation,
         constant: &mut Constants,
+        default: &Constants,
         ui: &mut Ui,
-        output: &EventStream<GlobalEvents>,
         arena: &Bump,
     ) -> bool {
         ui.horizontal(|ui| {
             ui.label(bumpalo::format!(in &arena, "{} = ", name).as_str());
             let ret = Self::modify_value(constant, ui);
 
-            if ui.button("X").clicked() {
-                let k = Rc::make_mut(&mut key_path);
-                k.push(name);
-                output.add_event(GlobalEvents::RemoveOption(key_path));
+            if ui.button("reset").clicked() {
+                *constant = default.clone();
             }
 
             ret

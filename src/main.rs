@@ -21,6 +21,7 @@ mod manage_controllers;
 mod profiles;
 mod search_selector;
 mod syncing;
+mod driver_constants_tab;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -86,6 +87,12 @@ impl App {
                         ..Default::default()
                     }),
                     name: "constants",
+                },
+                Tab {
+                    tab: Box::new(driver_constants_tab::DriverConstantsTab {
+                        ..Default::default()
+                    }),
+                    name: "driver constantss",
                 },
             ]),
             arena: Bump::new(),

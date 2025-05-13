@@ -69,10 +69,40 @@ impl Constants {
         }
     }
 
+    pub fn get_type(&self) -> ConstantsType {
+        match self {
+            Constants::Driver { .. } => ConstantsType::Driver,
+            Constants::Object { .. } => ConstantsType::Object,
+            Constants::Float(_) => ConstantsType::Float,
+            Constants::Int(_) => ConstantsType::Int,
+            Constants::String(_) => ConstantsType::String,
+            Constants::None => ConstantsType::Null,
+        }
+    }
+
     pub fn get_object_mut(&mut self) -> &mut BTreeMap<Rc<String>, Constants> {
         match self {
             Constants::Object { map } => map,
             _ => panic!("invalid arguments"),
+        }
+    }
+
+    pub fn make_object_mut(&mut self) -> &mut BTreeMap<Rc<String>, Constants> {
+        match self {
+            Constants::Object { map } => map,
+            _ => {
+                *self = Constants::Object { map: BTreeMap::new() };
+                self.get_object_mut()
+            }
+        }
+    }
+
+    pub fn make_mut(&mut self, d: &Box<Constants>) -> &mut Constants {
+        if d.get_type() == self.get_type() {
+            self
+        } else {
+            *self = d.as_ref().clone();
+            self
         }
     }
 
