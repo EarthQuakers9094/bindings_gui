@@ -11,6 +11,8 @@ use std::path::PathBuf;
 
 mod bindings;
 mod component;
+mod constants;
+mod constants_tab;
 mod from_binding;
 mod from_commands;
 mod global_state;
@@ -19,8 +21,6 @@ mod manage_controllers;
 mod profiles;
 mod search_selector;
 mod syncing;
-mod constants;
-mod constants_tab;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -86,7 +86,7 @@ impl App {
                         ..Default::default()
                     }),
                     name: "constants",
-                }
+                },
             ]),
             arena: Bump::new(),
         }

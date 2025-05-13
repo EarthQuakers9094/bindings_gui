@@ -1,0 +1,18 @@
+{
+  "command_to_bindings": {},
+  "controllers": [
+    "NotBound",
+    "NotBound",
+    "NotBound",
+    "NotBound",
+    "NotBound"
+  ],
+  "controller_names": [
+    "",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "constants": null
+}

@@ -1,5 +1,10 @@
 use std::{
-    borrow::Cow, collections::{BTreeMap, BTreeSet}, fmt::Display, fs::{read_dir, read_to_string}, path::Path, rc::Rc
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+    fmt::Display,
+    fs::{read_dir, read_to_string},
+    path::Path,
+    rc::Rc,
 };
 
 use bumpalo::Bump;
@@ -9,7 +14,10 @@ use serde::{Deserialize, Serialize};
 use anyhow::{Context, Result};
 
 use crate::{
-    constants::Constants, global_state::State, search_selector::{self, SingleCache}, ProgramError
+    constants::Constants,
+    global_state::State,
+    search_selector::{self, SingleCache},
+    ProgramError,
 };
 
 #[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Serialize, Deserialize, Clone, Copy)]

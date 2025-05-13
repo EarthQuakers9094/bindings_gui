@@ -31,7 +31,7 @@ pub enum GlobalEvents {
     RenameCommand(Rc<String>, Rc<String>),
     AddProfile(String),
     SetProfile(Rc<String>),
-    SetOption(OptionLocation, Constants, bool),
+    AddOption(OptionLocation, Constants, bool),
     RemoveOption(OptionLocation, bool),
 }
 
@@ -142,14 +142,22 @@ impl State {
                 };
                 false
             }
-            GlobalEvents::SetOption(key, constant, driver) => {
+            GlobalEvents::AddOption(key, constant, driver) => {
                 let constants = if driver {
                     &mut self.driver_constants
                 } else {
                     &mut self.constants
                 };
 
-                constants.set_key_in(key, constant)
+                if constants.add_option(key, constant) {
+                    self.handle_event(
+                        GlobalEvents::DisplayError("failed to add constants".to_string()),
+                        toasts,
+                    );
+                    false
+                } else {
+                    true
+                }
             }
             GlobalEvents::RemoveOption(key, driver) => {
                 let constants = if driver {
@@ -161,7 +169,7 @@ impl State {
                 constants.remove_key(&key);
 
                 true
-            },
+            }
         }
     }
 

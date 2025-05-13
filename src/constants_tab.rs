@@ -5,7 +5,7 @@ use std::{
 };
 
 use bumpalo::Bump;
-use egui::{CollapsingHeader, DragValue, ScrollArea, Ui};
+use egui::{collapsing_header::CollapsingState, DragValue, ScrollArea, Ui};
 
 use crate::{
     component::EventStream,
@@ -148,10 +148,17 @@ impl ConstantsTab {
             }
 
             if ui.button("add").clicked() {
+                if state.name == "" {
+                    output.add_event(GlobalEvents::DisplayError(
+                        "no name provided for event".to_string(),
+                    ));
+                    return;
+                }
+
                 let k = Rc::make_mut(&mut key);
                 k.push(Rc::new(mem::take(&mut state.name)));
 
-                output.add_event(GlobalEvents::SetOption(
+                output.add_event(GlobalEvents::AddOption(
                     key,
                     Constants::default_for_type(state.t, state.driver_type),
                     self.driver,
@@ -175,7 +182,20 @@ impl ConstantsTab {
 
         k.push(name.clone());
 
-        CollapsingHeader::new(name.as_str()).show(ui, |ui| {
+        CollapsingState::load_with_default_open(
+            ui.ctx(),
+            ui.make_persistent_id("object header"),
+            false,
+        )
+        .show_header(ui, |ui| {
+            ui.label(name.as_str());
+            if constants.is_empty() {
+                if ui.button("X").clicked() {
+                    output.add_event(GlobalEvents::RemoveOption(key_path.clone(), self.driver));
+                }
+            }
+        })
+        .body(|ui| {
             self.add_dialog(key_path.clone(), output, arena, ui);
 
             for (key, value) in constants {
@@ -231,7 +251,7 @@ impl ConstantsTab {
             Constants::Object { .. } => panic!("invalid argument"),
             Constants::Float(f) => {
                 let o = *f;
-                ui.add(DragValue::new(f));
+                ui.add(DragValue::new(f).speed(0.01));
 
                 *f != o
             }

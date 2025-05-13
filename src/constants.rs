@@ -6,19 +6,19 @@ use serde::{Deserialize, Serialize};
 
 use crate::search_selector::{search_selector, SelectorCache};
 
-#[derive(Debug, Serialize, Deserialize, Clone, Default)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default, PartialEq)]
 #[serde(untagged)]
 pub enum Constants {
     Driver {
         default: Box<Constants>,
     },
 
-    Object{ map: BTreeMap<Rc<String>, Constants>},
+    Object {
+        map: BTreeMap<Rc<String>, Constants>,
+    },
     Float(f64),
     Int(i64),
     String(String),
-
-
 
     #[default]
     None,
@@ -27,7 +27,7 @@ pub enum Constants {
 impl Display for Constants {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Constants::Object{map} => {
+            Constants::Object { map } => {
                 write!(f, "{{")?;
 
                 for (k, v) in map {
@@ -50,48 +50,55 @@ impl Display for Constants {
 impl Constants {
     pub fn default_for_type(t: ConstantsType, d: ConstantsType) -> Self {
         match t {
-            ConstantsType::Object => Constants::Object {map: Default::default()},
+            ConstantsType::Object => Constants::Object {
+                map: Default::default(),
+            },
             ConstantsType::Float => Constants::Float(Default::default()),
             ConstantsType::Int => Constants::Int(Default::default()),
             ConstantsType::String => Constants::String(Default::default()),
-            ConstantsType::Driver => if d == ConstantsType::Driver { 
-                panic!("can't have Driver<Driver>")
-            } else {
-                Constants::Driver {
-                    default: Box::new(Self::default_for_type(d, d)),
+            ConstantsType::Driver => {
+                if d == ConstantsType::Driver {
+                    panic!("can't have Driver<Driver>")
+                } else {
+                    Constants::Driver {
+                        default: Box::new(Self::default_for_type(d, d)),
+                    }
                 }
-            },
+            }
             ConstantsType::Null => Constants::None,
         }
     }
 
-
     pub fn get_object_mut(&mut self) -> &mut BTreeMap<Rc<String>, Constants> {
         match self {
-            Constants::Object{map} => map,
+            Constants::Object { map } => map,
             _ => panic!("invalid arguments"),
         }
     }
 
-    pub fn set_key_in(&mut self, key: OptionLocation, value: Constants) -> bool {
+    pub fn add_option(&mut self, key: OptionLocation, value: Constants) -> bool {
         let mut cloc = self;
 
         for l in key.iter() {
             match cloc {
-                Constants::Object{map } => {
+                Constants::Object { map } => {
                     cloc = map.entry(l.clone()).or_insert(Constants::None);
-                },
+                }
                 Constants::None => {
                     let mut map = BTreeMap::new();
 
                     map.insert(l.clone(), Constants::None);
 
-                    *cloc = Constants::Object {map};
+                    *cloc = Constants::Object { map };
 
                     cloc = cloc.get_object_mut().get_mut(l).unwrap();
                 }
                 _ => return true,
             }
+        }
+
+        if *cloc != Constants::None {
+            return true;
         }
 
         *cloc = value;
@@ -102,10 +109,16 @@ impl Constants {
     pub fn remove_key(&mut self, key: &[Rc<String>]) {
         match key.len() {
             0 => panic!("invalid args"),
-            1 => {self.get_object_mut().remove(&key[0]);},
-            _ => {self.get_object_mut().get_mut(&key[0]).unwrap().remove_key(&key[1..]);}
+            1 => {
+                self.get_object_mut().remove(&key[0]);
+            }
+            _ => {
+                self.get_object_mut()
+                    .get_mut(&key[0])
+                    .unwrap()
+                    .remove_key(&key[1..]);
+            }
         }
-        
     }
 }
 
