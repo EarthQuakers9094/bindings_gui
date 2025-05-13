@@ -2,6 +2,8 @@ use bumpalo::Bump;
 use egui::Ui;
 use std::cell::RefCell;
 
+use crate::password_lock::PasswordLock;
+
 #[derive(Debug, Default)]
 pub(crate) struct EventStream<E> {
     events: RefCell<Vec<E>>,
@@ -34,4 +36,11 @@ pub(crate) trait Component: std::fmt::Debug {
         output: &EventStream<Self::OutputEvents>,
         arena: &Bump,
     );
+
+    fn lock(self) -> PasswordLock<Self>
+    where
+        Self: Sized,
+    {
+        PasswordLock::new(self)
+    }
 }

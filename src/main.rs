@@ -22,6 +22,7 @@ mod profiles;
 mod search_selector;
 mod syncing;
 mod driver_constants_tab;
+mod password_lock;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -65,7 +66,7 @@ impl App {
                 Tab {
                     tab: Box::new(manage_commands::ManageTab {
                         ..Default::default()
-                    }),
+                    }.lock()),
                     name: "manage commands",
                 },
                 Tab {
@@ -73,7 +74,7 @@ impl App {
                     name: "manage controllers",
                 },
                 Tab {
-                    tab: Box::new(syncing::SyncingTab {}),
+                    tab: Box::new(syncing::SyncingTab {}.lock()),
                     name: "syncing settings",
                 },
                 Tab {
@@ -85,14 +86,14 @@ impl App {
                 Tab {
                     tab: Box::new(constants_tab::ConstantsTab {
                         ..Default::default()
-                    }),
+                    }.lock()),
                     name: "constants",
                 },
                 Tab {
                     tab: Box::new(driver_constants_tab::DriverConstantsTab {
                         ..Default::default()
                     }),
-                    name: "driver constantss",
+                    name: "driver constants",
                 },
             ]),
             arena: Bump::new(),

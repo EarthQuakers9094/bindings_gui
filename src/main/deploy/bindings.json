@@ -1,6 +1,8 @@
 {
   "url": null,
-  "commands": [],
+  "commands": [
+    "new command"
+  ],
   "constants": {
     "map": {
       "pid": {
