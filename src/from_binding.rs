@@ -7,7 +7,7 @@ use bumpalo::Bump;
 use egui::{Color32, ScrollArea, Ui};
 
 use crate::{
-    bindings::{Binding, Button, RunWhen},
+    bindings::{Binding, Button, PButton, RunWhen},
     component::{Component, EventStream},
     global_state::GlobalEvents,
     search_selector::{search_selector, SelectorCache},
@@ -33,10 +33,10 @@ impl Default for EditingStates {
 
 #[derive(Debug, Default)]
 pub struct FromBindings {
-    pub editing_states: HashMap<(u8, Button), EditingStates>,
+    pub editing_states: HashMap<PButton, EditingStates>,
     pub button: Button,
     pub controller: u8,
-    pub bindings: BTreeSet<(u8, Button)>,
+    pub bindings: BTreeSet<PButton>,
     pub button_filter: String,
     pub button_filter_cache: SelectorCache<Button>,
     pub filtered_commands: SelectorCache<Rc<String>>,
@@ -183,7 +183,7 @@ impl FromBindings {
         env: &State,
         output: &EventStream<GlobalEvents>,
         state: &mut EditingStates,
-        binding: (u8, Button),
+        binding: PButton,
     ) {
         ui.horizontal(|ui| {
             ui.label("command");

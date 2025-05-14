@@ -37,7 +37,7 @@ where
         if self.locked {
             ui.horizontal(|ui| {
                 ui.label("password: ");
-                
+
                 if ui
                     .add(
                         TextEdit::singleline(&mut self.password_typed)

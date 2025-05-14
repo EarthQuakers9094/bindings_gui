@@ -27,17 +27,9 @@ pub struct EditingStates {
     driver_type_filter_cache: SelectorCache<ConstantsType>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ConstantsTab {
     pub add: HashMap<OptionLocation, EditingStates>,
-}
-
-impl Default for ConstantsTab {
-    fn default() -> Self {
-        Self {
-            add: Default::default(),
-        }
-    }
 }
 
 impl Component for ConstantsTab {
@@ -141,7 +133,7 @@ impl ConstantsTab {
             }
 
             if ui.button("add").clicked() {
-                if state.name == "" {
+                if state.name.is_empty() {
                     output.add_event(GlobalEvents::DisplayError(
                         "no name provided for event".to_string(),
                     ));
@@ -181,10 +173,8 @@ impl ConstantsTab {
         )
         .show_header(ui, |ui| {
             ui.label(name.as_str());
-            if constants.is_empty() {
-                if ui.button("X").clicked() {
-                    output.add_event(GlobalEvents::RemoveOption(key_path.clone()));
-                }
+            if constants.is_empty() && ui.button("X").clicked() {
+                output.add_event(GlobalEvents::RemoveOption(key_path.clone()));
             }
         })
         .body(|ui| {

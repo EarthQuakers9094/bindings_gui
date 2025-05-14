@@ -108,10 +108,14 @@ impl Binding {
     }
 }
 
+pub type BoundCommands = Vec<(Rc<String>, RunWhen)>;
+
+pub type PButton = (u8, Button);
+
 #[derive(Debug, Default)]
 pub(crate) struct BindingsMap {
     pub command_to_bindings: BTreeMap<Rc<String>, Vec<Binding>>,
-    pub binding_to_commands: BTreeMap<(u8, Button), Vec<(Rc<String>, RunWhen)>>,
+    pub binding_to_commands: BTreeMap<PButton, BoundCommands>,
 }
 
 impl From<BTreeMap<Rc<String>, Vec<Binding>>> for BindingsMap {
@@ -209,7 +213,7 @@ impl BindingsMap {
             .is_some_and(|l| !l.is_empty())
     }
 
-    pub(crate) fn has_button(&self, button: (u8, Button)) -> bool {
+    pub(crate) fn has_button(&self, button: PButton) -> bool {
         self.binding_to_commands.contains_key(&button)
     }
 

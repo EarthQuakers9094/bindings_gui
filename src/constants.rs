@@ -91,17 +91,19 @@ impl Constants {
         match self {
             Constants::Object { map } => map,
             _ => {
-                *self = Constants::Object { map: BTreeMap::new() };
+                *self = Constants::Object {
+                    map: BTreeMap::new(),
+                };
                 self.get_object_mut()
             }
         }
     }
 
-    pub fn make_mut(&mut self, d: &Box<Constants>) -> &mut Constants {
+    pub fn make_mut(&mut self, d: &Constants) -> &mut Constants {
         if d.get_type() == self.get_type() {
             self
         } else {
-            *self = d.as_ref().clone();
+            *self = d.clone();
             self
         }
     }
@@ -194,11 +196,7 @@ impl ConstantsType {
         if driver {
             arena.alloc(non_driver.into_iter())
         } else {
-            arena.alloc(
-                non_driver
-                    .into_iter()
-                    .chain([ConstantsType::Driver].into_iter()),
-            )
+            arena.alloc(non_driver.into_iter().chain([ConstantsType::Driver]))
         }
     }
 
@@ -215,9 +213,7 @@ impl ConstantsType {
             id,
             filter,
             self,
-            Self::valid_types(arena, driver)
-                .into_iter()
-                .map(|a| (Rc::new(a.to_string()), a)),
+            Self::valid_types(arena, driver).map(|a| (Rc::new(a.to_string()), a)),
             cache,
             100.0,
             ui,

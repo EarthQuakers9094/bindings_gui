@@ -4,7 +4,6 @@ use bumpalo::Bump;
 use egui::{collapsing_header::CollapsingState, DragValue, ScrollArea, Ui};
 
 use crate::{
-    component::EventStream,
     constants::{Constants, OptionLocation},
     global_state::{GlobalEvents, State},
     Component,
@@ -35,7 +34,7 @@ impl Component for DriverConstantsTab {
                     for (key, value) in map.iter() {
                         match value {
                             Constants::Object { map } => {
-                                modified |= self.show_object(
+                                modified |= Self::show_object(
                                     key.clone(),
                                     map,
                                     constants
@@ -46,7 +45,6 @@ impl Component for DriverConstantsTab {
                                         })
                                         .make_object_mut(),
                                     Rc::new(Vec::new()),
-                                    output,
                                     arena,
                                     ui,
                                 );
@@ -60,7 +58,7 @@ impl Component for DriverConstantsTab {
                                         .entry(key.clone())
                                         .or_insert(Constants::None)
                                         .make_mut(default),
-                                    &default,
+                                    default,
                                     ui,
                                     arena,
                                 );
@@ -85,12 +83,10 @@ impl Component for DriverConstantsTab {
 
 impl DriverConstantsTab {
     fn show_object(
-        &mut self,
         name: Rc<String>,
         map: &BTreeMap<Rc<String>, Constants>,
         constants: &mut BTreeMap<Rc<String>, Constants>,
         mut key_path: OptionLocation,
-        output: &EventStream<GlobalEvents>,
         arena: &Bump,
         ui: &mut Ui,
     ) -> bool {
@@ -112,7 +108,7 @@ impl DriverConstantsTab {
             for (key, value) in map {
                 match value {
                     Constants::Object { map } => {
-                        modified |= self.show_object(
+                        modified |= Self::show_object(
                             key.clone(),
                             map,
                             constants
@@ -122,7 +118,6 @@ impl DriverConstantsTab {
                                 })
                                 .make_object_mut(),
                             key_path.clone(),
-                            output,
                             arena,
                             ui,
                         );
@@ -135,7 +130,7 @@ impl DriverConstantsTab {
                                 .entry(key.clone())
                                 .or_insert(Constants::None)
                                 .make_mut(default),
-                            &default,
+                            default,
                             ui,
                             arena,
                         );

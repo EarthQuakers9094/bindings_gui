@@ -154,7 +154,6 @@ impl State {
                 }
             }
             GlobalEvents::RemoveOption(key) => {
-
                 self.constants.remove_key(&key);
                 self.driver_constants.remove_key(&key);
 

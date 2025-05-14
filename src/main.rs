@@ -13,16 +13,16 @@ mod bindings;
 mod component;
 mod constants;
 mod constants_tab;
+mod driver_constants_tab;
 mod from_binding;
 mod from_commands;
 mod global_state;
 mod manage_commands;
 mod manage_controllers;
+mod password_lock;
 mod profiles;
 mod search_selector;
 mod syncing;
-mod driver_constants_tab;
-mod password_lock;
 // for when external event loop support is added
 // mod sync_thread;
 
@@ -64,9 +64,12 @@ impl App {
                     name: "bindings to commands",
                 },
                 Tab {
-                    tab: Box::new(manage_commands::ManageTab {
-                        ..Default::default()
-                    }.lock()),
+                    tab: Box::new(
+                        manage_commands::ManageTab {
+                            ..Default::default()
+                        }
+                        .lock(),
+                    ),
                     name: "manage commands",
                 },
                 Tab {
@@ -84,15 +87,16 @@ impl App {
                     name: "profiles",
                 },
                 Tab {
-                    tab: Box::new(constants_tab::ConstantsTab {
-                        ..Default::default()
-                    }.lock()),
+                    tab: Box::new(
+                        constants_tab::ConstantsTab {
+                            ..Default::default()
+                        }
+                        .lock(),
+                    ),
                     name: "constants",
                 },
                 Tab {
-                    tab: Box::new(driver_constants_tab::DriverConstantsTab {
-                        ..Default::default()
-                    }),
+                    tab: Box::new(driver_constants_tab::DriverConstantsTab {}),
                     name: "driver constants",
                 },
             ]),
