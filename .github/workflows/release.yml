@@ -1,0 +1,47 @@
+name: release update
+
+on:
+  workflow_dispatch:
+    inputs:
+      releaseVersion:
+        description: "Release version number"
+        type: string
+        required: true
+
+
+permissions:
+  contents: write
+
+jobs:
+  create-helloworld-windows-installers:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Install go-msi
+        run: choco install -y "go-msi"
+
+      - name: Build
+        run: cargo build --release --verbose
+
+      - name: setup directory structure
+        run: |
+          mkdir -p application
+          cp ./target/release/bindings-gui.exe application
+
+      - name: Build Windows Installer MSI from exe file
+        uses: AliceOh/CreateWindowsInstaller@1.0.0
+        with:
+          exefile: 'bindings-gui.exe'
+
+      - name: Create Release
+        uses: ncipollo/release-action@v1
+        with:
+          artifacts: "bindings-gui.exe.msi"
+          name: ${{ inputs.releaseVersion }}
+          allowUpdates: true
+          generateReleaseNotes: true
+          tag: v${{ inputs.releaseVersion }}
+          commit: main
