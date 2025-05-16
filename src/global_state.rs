@@ -230,7 +230,7 @@ impl State {
                         .arg(save_file.as_os_str())
                         .arg(profile.as_os_str())
                         .arg(
-                            bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/bindings.json", url)
+                            bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/", url)
                                 .as_str(),
                         )
                         .spawn()?,
