@@ -227,8 +227,9 @@ impl State {
 
                 self.sync_process = Some(
                     Command::new("scp")
+                        .arg("-r")
                         .arg(save_file.as_os_str())
-                        .arg(profile.as_os_str())
+                        .arg(bumpalo::format!(in &arena, "{}/bindings", self.deploy_dir.as_os_str().to_str().unwrap()).as_str())
                         .arg(
                             bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/", url)
                                 .as_str(),

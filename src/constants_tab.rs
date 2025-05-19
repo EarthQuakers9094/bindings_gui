@@ -237,7 +237,7 @@ impl ConstantsTab {
             }
             Constants::Int(i) => {
                 let o = *i;
-                ui.add(DragValue::new(i));
+                ui.add(DragValue::new(i).speed(1));
 
                 *i != o
             }

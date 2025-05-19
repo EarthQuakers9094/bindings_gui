@@ -16,8 +16,8 @@ pub enum Constants {
     Object {
         map: BTreeMap<Rc<String>, Constants>,
     },
-    Float(f64),
     Int(i64),
+    Float(f64),
     String(String),
 
     #[default]
@@ -139,6 +139,10 @@ impl Constants {
     }
 
     pub fn remove_key(&mut self, key: &[Rc<String>]) {
+        if *self == Constants::None {
+            return;
+        }
+
         match key.len() {
             0 => panic!("invalid args"),
             1 => {
