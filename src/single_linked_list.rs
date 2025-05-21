@@ -5,7 +5,7 @@ pub enum SingleLinkedList<'a, A> {
 }
 
 impl<'a, A> SingleLinkedList<'a, A> {
-    pub fn push(&'a self, a: A) -> SingleLinkedList<'a, A> {
+    pub fn snoc(&'a self, a: A) -> SingleLinkedList<'a, A> {
         SingleLinkedList::Value(a, self)
     }
 

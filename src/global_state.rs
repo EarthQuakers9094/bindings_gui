@@ -1,11 +1,5 @@
 use std::{
-    borrow::Cow,
-    collections::BTreeSet,
-    fs::{create_dir_all, read_to_string, File},
-    io::Write,
-    path::PathBuf,
-    process::{Child, Command},
-    rc::Rc,
+    borrow::Cow, collections::BTreeSet, fs::{create_dir_all, read_to_string, File}, io::Write, os::windows::process::CommandExt, path::PathBuf, process::{Child, Command}, rc::Rc
 };
 
 use anyhow::{Context, Result};
@@ -252,6 +246,7 @@ impl State {
                             bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/", url)
                                 .as_str(),
                         )
+                        .creation_flags(0x08000000)
                         .spawn()?,
                 );
             }

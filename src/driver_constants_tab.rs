@@ -107,7 +107,7 @@ impl DriverConstantsTab {
         })
         .body(|ui| {
             for (key, value) in map {
-                let key_path = key_path.push(key.clone());
+                let key_path = key_path.snoc(key.clone());
 
                 match value {
                     Constants::Object { map } => {
@@ -132,9 +132,6 @@ impl DriverConstantsTab {
                             key.clone(),
                             &key_path,
                             constants.get_mut(key),
-                            // .entry(key.clone())
-                            // .or_insert(Constants::None)
-                            // .make_mut(default),
                             default,
                             output,
                             ui,
