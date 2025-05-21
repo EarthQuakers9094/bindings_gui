@@ -23,7 +23,9 @@ mod manage_controllers;
 mod password_lock;
 mod profiles;
 mod search_selector;
+mod single_linked_list;
 mod syncing;
+
 // for when external event loop support is added
 // mod sync_thread;
 

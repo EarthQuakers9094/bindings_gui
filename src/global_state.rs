@@ -32,7 +32,9 @@ pub enum GlobalEvents {
     AddProfile(String),
     SetProfile(Rc<String>),
     AddOption(OptionLocation, Constants),
+    AddOptionDriver(OptionLocation, Constants),
     RemoveOption(OptionLocation),
+    RemoveOptionDriver(OptionLocation),
 }
 
 #[derive(Debug)]
@@ -158,6 +160,22 @@ impl State {
                 self.driver_constants.remove_key(&key);
 
                 true
+            }
+            GlobalEvents::RemoveOptionDriver(key) => {
+                self.driver_constants.remove_key(&key);
+
+                true
+            }
+            GlobalEvents::AddOptionDriver(key, constant) => {
+                if self.driver_constants.add_option(key, constant) {
+                    self.handle_event(
+                        GlobalEvents::DisplayError("failed to add constant".to_string()),
+                        toasts,
+                    );
+                    false
+                } else {
+                    true
+                }
             }
         }
     }

@@ -4,8 +4,10 @@ use bumpalo::Bump;
 use egui::{collapsing_header::CollapsingState, DragValue, ScrollArea, Ui};
 
 use crate::{
-    constants::{Constants, OptionLocation},
+    component::EventStream,
+    constants::Constants,
     global_state::{GlobalEvents, State},
+    single_linked_list::SingleLinkedList,
     Component,
 };
 
@@ -32,11 +34,15 @@ impl Component for DriverConstantsTab {
             match &env.constants {
                 Constants::Object { map } => {
                     for (key, value) in map.iter() {
+                        let end = SingleLinkedList::new();
+                        let key_path = SingleLinkedList::Value(key.clone(), &end);
+
                         match value {
                             Constants::Object { map } => {
                                 modified |= Self::show_object(
                                     key.clone(),
                                     map,
+                                    output,
                                     constants
                                         .make_object_mut()
                                         .entry(key.clone())
@@ -44,7 +50,7 @@ impl Component for DriverConstantsTab {
                                             map: BTreeMap::new(),
                                         })
                                         .make_object_mut(),
-                                    Rc::new(Vec::new()),
+                                    &key_path,
                                     arena,
                                     ui,
                                 );
@@ -53,12 +59,10 @@ impl Component for DriverConstantsTab {
                             Constants::Driver { default } => {
                                 modified |= Self::show_value(
                                     key.clone(),
-                                    constants
-                                        .make_object_mut()
-                                        .entry(key.clone())
-                                        .or_insert(Constants::None)
-                                        .make_mut(default),
+                                    &key_path,
+                                    constants.make_object_mut().get_mut(key),
                                     default,
+                                    output,
                                     ui,
                                     arena,
                                 );
@@ -85,16 +89,13 @@ impl DriverConstantsTab {
     fn show_object(
         name: Rc<String>,
         map: &BTreeMap<Rc<String>, Constants>,
+        output: &EventStream<GlobalEvents>,
         constants: &mut BTreeMap<Rc<String>, Constants>,
-        mut key_path: OptionLocation,
+        key_path: &SingleLinkedList<Rc<String>>,
         arena: &Bump,
         ui: &mut Ui,
     ) -> bool {
         let mut modified = false;
-
-        let k = Rc::make_mut(&mut key_path);
-
-        k.push(name.clone());
 
         CollapsingState::load_with_default_open(
             ui.ctx(),
@@ -106,18 +107,21 @@ impl DriverConstantsTab {
         })
         .body(|ui| {
             for (key, value) in map {
+                let key_path = key_path.push(key.clone());
+
                 match value {
                     Constants::Object { map } => {
                         modified |= Self::show_object(
                             key.clone(),
                             map,
+                            output,
                             constants
                                 .entry(key.clone())
                                 .or_insert(Constants::Object {
                                     map: BTreeMap::new(),
                                 })
                                 .make_object_mut(),
-                            key_path.clone(),
+                            &key_path,
                             arena,
                             ui,
                         );
@@ -126,11 +130,13 @@ impl DriverConstantsTab {
                     Constants::Driver { default } => {
                         modified |= Self::show_value(
                             key.clone(),
-                            constants
-                                .entry(key.clone())
-                                .or_insert(Constants::None)
-                                .make_mut(default),
+                            &key_path,
+                            constants.get_mut(key),
+                            // .entry(key.clone())
+                            // .or_insert(Constants::None)
+                            // .make_mut(default),
                             default,
+                            output,
                             ui,
                             arena,
                         );
@@ -146,20 +152,34 @@ impl DriverConstantsTab {
 
     fn show_value(
         name: Rc<String>,
-        constant: &mut Constants,
+        key_path: &SingleLinkedList<Rc<String>>,
+        constant: Option<&mut Constants>,
         default: &Constants,
+        output: &EventStream<GlobalEvents>,
         ui: &mut Ui,
         arena: &Bump,
     ) -> bool {
-        ui.horizontal(|ui| {
-            ui.label(bumpalo::format!(in &arena, "{} = ", name).as_str());
-            let ret = Self::modify_value(constant, ui);
+        ui.horizontal(|ui| match constant {
+            Some(c) => {
+                ui.label(bumpalo::format!(in &arena, "{} = ", name).as_str());
+                let ret = Self::modify_value(c, ui);
 
-            if ui.button("reset").clicked() {
-                *constant = default.clone();
+                if ui.button("reset").clicked() {
+                    output.add_event(GlobalEvents::RemoveOptionDriver(Rc::new(key_path.to_vec())));
+                }
+
+                ret
             }
+            None => {
+                if ui.button("change value").clicked() {
+                    output.add_event(GlobalEvents::AddOptionDriver(
+                        Rc::new(key_path.to_vec()),
+                        default.clone(),
+                    ));
+                }
 
-            ret
+                true
+            }
         })
         .inner
     }
