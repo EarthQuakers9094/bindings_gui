@@ -2,7 +2,7 @@ use bumpalo::Bump;
 use egui::Ui;
 use std::cell::RefCell;
 
-use crate::password_lock::PasswordLock;
+use crate::{password_lock::PasswordLock, TabType};
 
 #[derive(Debug, Default)]
 pub(crate) struct EventStream<E> {
@@ -43,4 +43,6 @@ pub(crate) trait Component: std::fmt::Debug {
     {
         PasswordLock::new(self)
     }
+
+    fn tab_type(&self) -> TabType;
 }

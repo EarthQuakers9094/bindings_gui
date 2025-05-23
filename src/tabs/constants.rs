@@ -15,7 +15,7 @@ use crate::{
     Component,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EditingStates {
     t: ConstantsType,
     name: String,
@@ -27,7 +27,7 @@ pub struct EditingStates {
     driver_type_filter_cache: SelectorCache<ConstantsType>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ConstantsTab {
     pub add: HashMap<OptionLocation, EditingStates>,
 }
@@ -88,6 +88,10 @@ impl Component for ConstantsTab {
         if modified {
             output.add_event(GlobalEvents::Save);
         }
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::Constants
     }
 }
 

@@ -6,7 +6,7 @@ use crate::{
     Component,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub(crate) struct ProfilesTab {
     pub name: String,
     pub filter: String,
@@ -53,5 +53,9 @@ impl Component for ProfilesTab {
                 output.add_event(GlobalEvents::SetProfile(self.profile_selection.clone()));
             };
         });
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::Profiles
     }
 }

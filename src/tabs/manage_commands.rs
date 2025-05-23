@@ -5,7 +5,7 @@ use egui::{ScrollArea, TextEdit, Ui};
 
 use crate::{component::Component, global_state::GlobalEvents, State};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub(crate) struct ManageTab {
     pub adding: String,
     pub rename: HashMap<Rc<String>, String>,
@@ -95,5 +95,9 @@ impl Component for ManageTab {
                 });
             }
         });
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::ManageCommands
     }
 }

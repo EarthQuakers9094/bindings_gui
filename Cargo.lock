@@ -468,6 +468,7 @@ dependencies = [
  "egui_autocomplete",
  "egui_dock",
  "futures",
+ "once_cell",
  "rfd",
  "serde",
  "serde_json",

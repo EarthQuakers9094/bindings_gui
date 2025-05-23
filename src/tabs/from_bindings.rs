@@ -14,7 +14,7 @@ use crate::{
     State,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct EditingStates {
     command: Rc<String>,
     filter: String,
@@ -31,7 +31,7 @@ impl Default for EditingStates {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct FromBindings {
     pub editing_states: HashMap<PButton, EditingStates>,
     pub button: Button,
@@ -153,6 +153,10 @@ impl Component for FromBindings {
                 }
             });
         });
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::FromBindings
     }
 }
 

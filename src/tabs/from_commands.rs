@@ -11,7 +11,7 @@ use crate::{
     State,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct BindingEditingState {
     controller: u8,
     button: Button,
@@ -40,7 +40,7 @@ impl Default for BindingEditingState {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct FromCommands {
     pub editing_states: HashMap<Rc<String>, BindingEditingState>,
 }
@@ -143,5 +143,9 @@ impl Component for FromCommands {
                 }
             });
         });
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::FromCommands
     }
 }

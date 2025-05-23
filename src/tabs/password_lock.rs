@@ -2,7 +2,7 @@ use egui::TextEdit;
 
 use crate::Component;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PasswordLock<A> {
     component: A,
     locked: bool,
@@ -57,5 +57,9 @@ where
             }
             self.component.render(ui, env, output, arena);
         }
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        self.component.tab_type()
     }
 }

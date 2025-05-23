@@ -2,10 +2,12 @@
 use anyhow::Result;
 use bumpalo::Bump;
 use component::Component;
-use egui::{Align2, Direction, Ui};
-use egui_dock::{DockArea, DockState, Style, TabViewer};
+use egui::{Align2, Direction, ScrollArea, Ui};
+use egui_dock::{DockArea, DockState, NodeIndex, Style, SurfaceIndex, TabViewer};
 use egui_toast::{Toast, Toasts};
 use global_state::{GlobalEvents, State};
+use once_cell::sync::Lazy;
+use std::collections::BTreeSet;
 use std::error::Error;
 use std::fmt::Display;
 use std::path::PathBuf;
@@ -34,6 +36,7 @@ enum App {
         views: State,
         tree: DockState<Tab>,
         arena: Bump,
+        used_tabs: BTreeSet<TabType>,
     },
 }
 
@@ -47,72 +50,12 @@ impl App {
     fn from_views(view: State) -> Self {
         Self::Running {
             views: view,
-            tree: DockState::new(vec![
-                Tab {
-                    tab: Box::new(from_commands::FromCommands {
-                        ..Default::default()
-                    }),
-                    name: "commands to bindings",
-                },
-                Tab {
-                    tab: Box::new(tabs::from_bindings::FromBindings {
-                        ..Default::default()
-                    }),
-                    name: "bindings to commands",
-                },
-                Tab {
-                    tab: Box::new(
-                        manage_commands::ManageTab {
-                            ..Default::default()
-                        }
-                        .lock(),
-                    ),
-                    name: "manage commands",
-                },
-                Tab {
-                    tab: Box::new(manage_controllers::ManageControllers {}),
-                    name: "manage controllers",
-                },
-                Tab {
-                    tab: Box::new(syncing::SyncingTab {}.lock()),
-                    name: "syncing settings",
-                },
-                Tab {
-                    tab: Box::new(profiles::ProfilesTab {
-                        ..Default::default()
-                    }),
-                    name: "profiles",
-                },
-                Tab {
-                    tab: Box::new(
-                        tabs::constants::ConstantsTab {
-                            ..Default::default()
-                        }
-                        .lock(),
-                    ),
-                    name: "constants",
-                },
-                Tab {
-                    tab: Box::new(tabs::driver_constants::DriverConstantsTab {}),
-                    name: "driver constants",
-                },
-                Tab {
-                    tab: Box::new(tabs::streams::StreamsTab {
-                        ..Default::default()
-                    }),
-                    name: "streams tab",
-                },
-                Tab {
-                    tab: Box::new(
-                        manage_streams::ManageStreamsTab {
-                            ..Default::default()
-                        }
-                        .lock(),
-                    ),
-                    name: "manage streams tab",
-                },
-            ]),
+            tree: DockState::new(vec![Tab {
+                tab: None,
+                name: "new tab",
+            }]),
             arena: Bump::new(),
+            used_tabs: BTreeSet::new(),
         }
     }
 
@@ -161,25 +104,48 @@ impl eframe::App for App {
 
         match self {
             App::Initial { .. } => {}
-            App::Running { views, tree, arena } => {
+            App::Running {
+                views,
+                tree,
+                arena,
+                used_tabs,
+            } => {
                 let mut toasts = Toasts::new()
                     .anchor(Align2::LEFT_BOTTOM, (-10.0, -10.0))
                     .direction(Direction::BottomUp);
 
+                let mut added_nodes = Vec::new();
+
                 DockArea::new(tree)
                     .style(Style::from_egui(ctx.style().as_ref()))
-                    .show_close_buttons(false)
-                    .show_add_buttons(false)
+                    .show_add_buttons(true)
                     .show_leaf_collapse_buttons(false)
-                    .show_leaf_close_all_buttons(false)
                     .show(
                         ctx,
                         &mut Tabs {
                             view: views,
                             toasts: &mut toasts,
                             arena,
+                            added_nodes: &mut added_nodes,
+                            used_tabs,
                         },
                     );
+
+                for i in added_nodes {
+                    tree.set_focused_node_and_surface(i);
+                    tree.push_to_focused_leaf(Tab {
+                        tab: None,
+                        name: "new tab",
+                    });
+                }
+
+                if tree.main_surface().is_empty() {
+                    println!("adding new tab");
+                    tree.push_to_first_leaf(Tab {
+                        tab: None,
+                        name: "new tab",
+                    });
+                }
 
                 if let Some(child) = &mut views.sync_process {
                     match child.try_wait() {
@@ -235,6 +201,8 @@ struct Tabs<'a> {
     view: &'a mut State,
     toasts: &'a mut Toasts,
     arena: &'a mut Bump,
+    added_nodes: &'a mut Vec<(SurfaceIndex, NodeIndex)>,
+    used_tabs: &'a mut BTreeSet<tabs::TabType>,
 }
 
 impl Tabs<'_> {
@@ -249,7 +217,7 @@ impl Tabs<'_> {
 
 #[derive(Debug)]
 struct Tab {
-    tab: Box<dyn Component<OutputEvents = GlobalEvents, Environment = State>>,
+    tab: Option<Box<dyn Component<OutputEvents = GlobalEvents, Environment = State>>>,
     name: &'static str,
 }
 
@@ -260,19 +228,51 @@ impl TabViewer for Tabs<'_> {
         tab.name.into()
     }
 
-    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
-        match self.view.display_tab(ui, tab, self.toasts, self.arena) {
-            Ok(_) => {}
-            Err(err) => {
-                self.add_error(err.to_string());
-            }
-        };
-
-        self.arena.reset();
+    fn on_add(&mut self, _surface: egui_dock::SurfaceIndex, _node: egui_dock::NodeIndex) {
+        self.added_nodes.push((_surface, _node));
     }
 
-    fn closeable(&mut self, _tab: &mut Self::Tab) -> bool {
-        false
+    fn on_close(&mut self, tab: &mut Self::Tab) -> bool {
+        if let Some(t) = &tab.tab {
+            self.used_tabs.remove(&t.tab_type());
+        }
+
+        true
+    }
+
+    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        match &mut tab.tab {
+            Some(t) => {
+                match self.view.display_tab(ui, t, self.toasts, self.arena) {
+                    Ok(_) => {}
+                    Err(err) => {
+                        self.add_error(err.to_string());
+                    }
+                };
+            }
+            None => {
+                ScrollArea::vertical().show(ui, |ui| {
+                    let mut new_tab: Option<TabType> = None;
+
+                    for i in Lazy::force(&ALL_TABS).difference(self.used_tabs) {
+                        if ui.button(i.name()).clicked() {
+                            new_tab = Some(*i);
+
+                            let b = i.build();
+
+                            tab.tab = Some(b);
+                            tab.name = i.name();
+                        }
+                    }
+
+                    if let Some(t) = new_tab {
+                        self.used_tabs.insert(t);
+                    }
+                });
+            }
+        }
+
+        self.arena.reset();
     }
 
     fn allowed_in_windows(&self, _tab: &mut Self::Tab) -> bool {

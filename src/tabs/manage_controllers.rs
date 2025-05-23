@@ -9,7 +9,7 @@ use crate::{
     global_state::{GlobalEvents, State},
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct ManageControllers {}
 
 impl Component for ManageControllers {
@@ -105,5 +105,9 @@ impl Component for ManageControllers {
                 });
             }
         });
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::ManageControllers
     }
 }

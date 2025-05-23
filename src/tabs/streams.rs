@@ -8,7 +8,7 @@ use crate::{
     Component,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct EditingStates {
     controller_filter: String,
     controller: u8,
@@ -19,7 +19,7 @@ pub struct EditingStates {
     axis_cache: SelectorCache<u8>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct StreamsTab {
     pub edit_state: BTreeMap<Rc<String>, EditingStates>,
 }
@@ -101,5 +101,9 @@ impl Component for StreamsTab {
                 }
             });
         });
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::Streams
     }
 }

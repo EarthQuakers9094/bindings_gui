@@ -18,7 +18,7 @@ use crate::{
     bindings::{self, Binding, BindingsMap, ControllerType, Profile, SaveData},
     component::EventStream,
     constants::{Constants, OptionLocation},
-    ProgramError, Tab,
+    Component, ProgramError,
 };
 
 #[derive(Debug, Clone)]
@@ -85,13 +85,13 @@ impl State {
     pub fn display_tab(
         &mut self,
         ui: &mut Ui,
-        tab: &mut Tab,
+        tab: &mut Box<dyn Component<OutputEvents = GlobalEvents, Environment = Self>>,
         toasts: &mut Toasts,
         arena: &Bump,
     ) -> Result<()> {
         let mut events = EventStream::new();
 
-        tab.tab.render(ui, self, &events, arena);
+        tab.render(ui, self, &events, arena);
 
         let mut update = false;
 

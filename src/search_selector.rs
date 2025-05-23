@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use egui::{popup_below_widget, Id, TextEdit, Ui};
 
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct SingleCache<K, V> {
     last_key: Option<K>,
     value: V,

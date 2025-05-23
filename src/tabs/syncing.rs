@@ -5,7 +5,7 @@ use crate::{
     Component,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Default, Clone)]
 pub struct SyncingTab {}
 
 impl Component for SyncingTab {
@@ -47,5 +47,9 @@ impl Component for SyncingTab {
                 }
             }
         }
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        super::TabType::Syncing
     }
 }

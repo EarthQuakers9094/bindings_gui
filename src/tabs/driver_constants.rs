@@ -11,7 +11,9 @@ use crate::{
     Component,
 };
 
-#[derive(Debug, Default)]
+use super::TabType;
+
+#[derive(Debug, Default, Clone)]
 pub struct DriverConstantsTab {}
 
 impl Component for DriverConstantsTab {
@@ -82,6 +84,10 @@ impl Component for DriverConstantsTab {
         if modified {
             output.add_event(GlobalEvents::Save);
         }
+    }
+
+    fn tab_type(&self) -> super::TabType {
+        TabType::DriverConstants
     }
 }
 
