@@ -74,7 +74,15 @@ impl Component for ManageTab {
                     }
 
                     if ui.button("X").clicked() {
-                        let valid_remove = !env.bindings.is_used(command);
+                        let is_used = match env.is_used(command) {
+                            Ok(a) => a,
+                            Err(a) => {
+                                output.add_event(GlobalEvents::DisplayError(a.to_string()));
+                                true
+                            },
+                        };
+
+                        let valid_remove = !is_used;
 
                         if valid_remove {
                             output.add_event(GlobalEvents::RemoveCommand(command.clone()));

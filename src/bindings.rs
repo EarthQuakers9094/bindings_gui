@@ -176,24 +176,6 @@ impl BindingsMap {
             .cloned()
     }
 
-    pub(crate) fn rename_binding(&mut self, from: Rc<String>, to: Rc<String>) {
-        let bindings = self.command_to_bindings.remove(&from).unwrap();
-
-        for binding in &bindings {
-            for (command, _) in self
-                .binding_to_commands
-                .get_mut(&(binding.controller, binding.button))
-                .unwrap()
-            {
-                if *command == from {
-                    *command = to.clone();
-                }
-            }
-        }
-
-        self.command_to_bindings.insert(to, bindings);
-    }
-
     pub(crate) fn remove_binding(&mut self, command: &String, binding: Binding) {
         self.command_to_bindings
             .get_mut(command)
@@ -205,12 +187,6 @@ impl BindingsMap {
             .retain(|(c, when): &(Rc<String>, RunWhen)| {
                 !(command == c.as_ref() && *when == binding.during)
             });
-    }
-
-    pub(crate) fn is_used(&self, command: &String) -> bool {
-        self.command_to_bindings
-            .get(command)
-            .is_some_and(|l| !l.is_empty())
     }
 
     pub(crate) fn has_button(&self, button: PButton) -> bool {
@@ -448,6 +424,16 @@ impl Profile<'_> {
         let profile: Profile = serde_json::from_str(&file)?;
 
         Ok(profile)
+    }
+
+    pub fn to_owned(self) -> Profile<'static> {
+        Profile {
+            command_to_bindings: Cow::Owned(self.command_to_bindings.into_owned()),
+            stream_to_axis: Cow::Owned(self.stream_to_axis.into_owned()),
+            controllers: Cow::Owned(self.controllers.into_owned()),
+            controller_names: Cow::Owned(self.controller_names.into_owned()),
+            constants: Cow::Owned(self.constants.into_owned()),
+        }
     }
 
     pub fn get_profiles(deploy: &Path) -> Result<Vec<Rc<String>>> {

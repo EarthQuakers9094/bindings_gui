@@ -96,7 +96,7 @@ impl State {
         let mut update = false;
 
         for e in events.drain() {
-            update |= self.handle_event(e, toasts); // don't do any because any terminates early
+            update |= self.handle_event(e, arena, toasts); // don't do any because any terminates early
         }
 
         if update {
@@ -106,7 +106,7 @@ impl State {
         Ok(())
     }
 
-    pub fn handle_event(&mut self, event: GlobalEvents, toasts: &mut Toasts) -> bool {
+    pub fn handle_event(&mut self, event: GlobalEvents, arena: &Bump, toasts: &mut Toasts) -> bool {
         match event {
             GlobalEvents::AddBinding(binding, command) => {
                 self.bindings.add_binding(command, binding);
@@ -135,7 +135,25 @@ impl State {
             }
             GlobalEvents::Save => true,
             GlobalEvents::RenameCommand(old, new) => {
-                self.bindings.rename_binding(old.clone(), new.clone());
+                if let Err(err) = self.map_profiles(
+                    |profile| {
+                        let bindings = profile.command_to_bindings.to_mut().remove(&old);
+
+                        match bindings {
+                            Some(bindings) => {
+                                profile
+                                    .command_to_bindings
+                                    .to_mut()
+                                    .insert(new.clone(), bindings);
+                            }
+                            None => {}
+                        }
+                    },
+                    arena,
+                ) {
+                    self.handle_event(GlobalEvents::DisplayError(err.to_string()), arena, toasts);
+                }
+
                 self.commands.remove(&old);
                 self.commands.insert(new);
                 true
@@ -148,7 +166,11 @@ impl State {
                 match self.change_profile(profile) {
                     Ok(()) => {}
                     Err(err) => {
-                        self.handle_event(GlobalEvents::DisplayError(err.to_string()), toasts);
+                        self.handle_event(
+                            GlobalEvents::DisplayError(err.to_string()),
+                            arena,
+                            toasts,
+                        );
                     }
                 };
                 false
@@ -157,6 +179,7 @@ impl State {
                 if self.constants.add_option(key, constant) {
                     self.handle_event(
                         GlobalEvents::DisplayError("failed to add constants".to_string()),
+                        arena,
                         toasts,
                     );
                     false
@@ -166,7 +189,15 @@ impl State {
             }
             GlobalEvents::RemoveOption(key) => {
                 self.constants.remove_key(&key);
-                self.driver_constants.remove_key(&key);
+
+                if let Err(err) = self.map_profiles(
+                    |profile| {
+                        profile.constants.to_mut().remove_key(&key);
+                    },
+                    arena,
+                ) {
+                    self.handle_event(GlobalEvents::DisplayError(err.to_string()), arena, toasts);
+                }
 
                 true
             }
@@ -179,6 +210,7 @@ impl State {
                 if self.driver_constants.add_option(key, constant) {
                     self.handle_event(
                         GlobalEvents::DisplayError("failed to add constant".to_string()),
+                        arena,
                         toasts,
                     );
                     false
@@ -226,11 +258,17 @@ impl State {
 
         let profile: Profile<'static> = self.get_profile(profile.as_str())?;
 
+        self.set_fields_from_profile(profile);
+
+        Ok(())
+    }
+
+    pub fn set_fields_from_profile(&mut self, profile: Profile<'_>) {
         self.bindings = profile.command_to_bindings.into_owned().into();
         self.controller_names = profile.controller_names.into_owned();
         self.controllers = profile.controllers.into_owned();
-
-        Ok(())
+        self.constants = profile.constants.into_owned();
+        self.stream_to_axis = profile.stream_to_axis.into_owned();
     }
 
     pub fn get_profile(&self, profile: &str) -> Result<Profile<'static>> {
@@ -312,6 +350,81 @@ impl State {
             constants: Cow::Borrowed(&self.constants),
             streams: Cow::Borrowed(&self.streams),
         }
+    }
+
+    pub fn map_profiles<F>(&mut self, mut f: F, arena: &Bump) -> Result<()>
+    where
+        F: FnMut(&mut Profile),
+    {
+        for ele in self
+            .profiles
+            .iter()
+            .filter(|ele| ele.as_str() != self.profile.as_str())
+        {
+            let mut profile = self
+                .get_profile(ele.as_str())
+                .with_context(|| "failed to get profile")?;
+
+            f(&mut profile);
+
+            let mut path = self.deploy_dir.clone();
+
+            path.push(ele.as_str());
+
+            let mut file =
+                File::create(path).with_context(|| "failed to create file to savce to")?;
+
+            file.write_all(
+                serde_json::to_string_pretty(&self.to_profile_data())
+                    .unwrap()
+                    .as_bytes(),
+            )
+            .with_context(|| "failed to save to disk")?;
+        }
+
+        let mut p = self.to_profile_data();
+
+        f(&mut p);
+
+        let p = p.to_owned();
+
+        self.set_fields_from_profile(p);
+
+        self.write_out(arena)?;
+
+        Ok(())
+    }
+
+    pub fn enumerate_profiles(&self) -> impl Iterator<Item = Result<Profile>> {
+        self.profiles
+            .iter()
+            .filter(|ele| ele.as_str() != self.profile.as_str())
+            .map(|profile| self.get_profile(profile.as_str()))
+            .chain([Ok(self.to_profile_data())])
+    }
+
+    pub fn is_used(&self, command: &Rc<String>) -> Result<bool> {
+        for profile in self.enumerate_profiles() {
+            let profile = profile?;
+
+            if profile.command_to_bindings.contains_key(command) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
+    }
+
+    pub fn is_stream_used(&self, stream: &Rc<String>) -> Result<bool> {
+        for profile in self.enumerate_profiles() {
+            let profile = profile?;
+
+            if profile.stream_to_axis.contains_key(stream) {
+                return Ok(true);
+            }
+        }
+
+        Ok(false)
     }
 
     fn from_bindings(

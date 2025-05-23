@@ -74,7 +74,15 @@ impl Component for ManageStreamsTab {
                     }
 
                     if ui.button("X").clicked() {
-                        let valid_remove = !env.stream_to_axis.contains_key(stream);
+                        let is_used = match env.is_stream_used(stream) {
+                            Ok(a) => a,
+                            Err(err) => {
+                                output.add_event(GlobalEvents::DisplayError(err.to_string()));
+                                true
+                            }
+                        };
+
+                        let valid_remove = !is_used;
 
                         if valid_remove {
                             output.add_event(GlobalEvents::RemoveStream(stream.clone()));
