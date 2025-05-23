@@ -1,16 +1,14 @@
 {
   "url": null,
-  "commands": [
-    "new command"
-  ],
+  "commands": [],
   "constants": {
     "map": {
-      "pid": {
-        "map": {
-          "i": 0.06,
-          "p": 2.36
-        }
-      }
+      "a": 3.4
     }
-  }
+  },
+  "streams": [
+    "rotation",
+    "x",
+    "y"
+  ]
 }

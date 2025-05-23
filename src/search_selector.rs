@@ -85,5 +85,7 @@ where
         },
     );
 
+    cache.update();
+
     changed
 }

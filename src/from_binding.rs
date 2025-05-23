@@ -76,8 +76,6 @@ impl Component for FromBindings {
                     ui,
                 );
 
-                self.controller_cache.update();
-
                 ui.label("button");
 
                 env.controllers[self.controller as usize].show_button_selector(
@@ -88,8 +86,6 @@ impl Component for FromBindings {
                     ui,
                     arena,
                 );
-
-                self.button_filter_cache.update();
 
                 if ui.button("add button").clicked()
                     && env.valid_binding(self.controller, self.button)
@@ -157,8 +153,6 @@ impl Component for FromBindings {
                 }
             });
         });
-
-        self.filtered_commands.update();
     }
 }
 

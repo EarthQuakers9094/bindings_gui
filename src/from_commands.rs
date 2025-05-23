@@ -121,8 +121,6 @@ impl Component for FromCommands {
                             arena,
                         );
 
-                        edit_state.cache.update();
-
                         let run_when = &mut edit_state.when;
 
                         run_when.selection_ui(ui, command);

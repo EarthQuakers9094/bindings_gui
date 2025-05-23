@@ -1,5 +1,12 @@
 use std::{
-    borrow::Cow, collections::BTreeSet, fs::{create_dir_all, read_to_string, File}, io::Write, os::windows::process::CommandExt, path::PathBuf, process::{Child, Command}, rc::Rc
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet},
+    fs::{create_dir_all, read_to_string, File},
+    io::Write,
+    os::windows::process::CommandExt,
+    path::PathBuf,
+    process::{Child, Command},
+    rc::Rc,
 };
 
 use anyhow::{Context, Result};
@@ -29,6 +36,10 @@ pub enum GlobalEvents {
     AddOptionDriver(OptionLocation, Constants),
     RemoveOption(OptionLocation),
     RemoveOptionDriver(OptionLocation),
+    SetStream(Rc<String>, u8, u8),
+    AddStream(String),
+    RenameStream(Rc<String>, Rc<String>),
+    RemoveStream(Rc<String>),
 }
 
 #[derive(Debug)]
@@ -45,6 +56,8 @@ pub struct State {
     pub profiles: Vec<Rc<String>>,
     pub constants: Constants,
     pub driver_constants: Constants,
+    pub stream_to_axis: BTreeMap<Rc<String>, (u8, u8)>,
+    pub streams: BTreeSet<Rc<String>>,
 }
 
 impl Default for State {
@@ -62,6 +75,8 @@ impl Default for State {
             profiles: Default::default(),
             constants: Default::default(),
             driver_constants: Default::default(),
+            stream_to_axis: Default::default(),
+            streams: Default::default(),
         }
     }
 }
@@ -171,6 +186,30 @@ impl State {
                     true
                 }
             }
+            GlobalEvents::SetStream(stream, controller, axis) => {
+                self.stream_to_axis.insert(stream, (controller, axis));
+                true
+            }
+            GlobalEvents::AddStream(stream) => {
+                self.streams.insert(Rc::new(stream));
+                true
+            }
+            GlobalEvents::RenameStream(from, to) => {
+                self.streams.remove(&from);
+                self.streams.insert(to.clone());
+
+                let binding: Option<(u8, u8)> = self.stream_to_axis.remove(&from);
+
+                if let Some(binding) = binding {
+                    self.stream_to_axis.insert(to, binding);
+                }
+
+                true
+            }
+            GlobalEvents::RemoveStream(stream) => {
+                self.streams.remove(&stream);
+                true
+            }
         }
     }
 
@@ -246,7 +285,7 @@ impl State {
                             bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/", url)
                                 .as_str(),
                         )
-                        .creation_flags(0x08000000)
+                        .creation_flags(0x08000000) // don't create new window for child proccess
                         .spawn()?,
                 );
             }
@@ -262,6 +301,7 @@ impl State {
             controllers: Cow::Borrowed(&self.controllers),
             controller_names: Cow::Borrowed(&self.controller_names),
             constants: Cow::Borrowed(&self.driver_constants),
+            stream_to_axis: Cow::Borrowed(&self.stream_to_axis),
         }
     }
 
@@ -270,6 +310,7 @@ impl State {
             url: Cow::Borrowed(&self.url),
             commands: Cow::Borrowed(&self.commands),
             constants: Cow::Borrowed(&self.constants),
+            streams: Cow::Borrowed(&self.streams),
         }
     }
 
@@ -293,6 +334,8 @@ impl State {
             profiles,
             constants: bindings.constants.into_owned(),
             driver_constants: profile.constants.into_owned(),
+            stream_to_axis: profile.stream_to_axis.into_owned(),
+            streams: bindings.streams.into_owned(),
         }
     }
 

@@ -57,12 +57,15 @@ impl Component for ManageControllers {
                                     output.add_event(GlobalEvents::Save);
                                 }
                                 if ui.button("set generic").clicked() {
-                                    *controller = ControllerType::Generic { buttons: 0 };
+                                    *controller = ControllerType::Generic {
+                                        buttons: 0,
+                                        axises: 0,
+                                    };
                                     output.add_event(GlobalEvents::Save);
                                 }
                             });
                         }
-                        ControllerType::Generic { buttons } => {
+                        ControllerType::Generic { buttons, axises } => {
                             ui.label("generic");
 
                             ui.label("buttons: ");
@@ -71,7 +74,13 @@ impl Component for ManageControllers {
 
                             ui.add(DragValue::new(buttons).range(0..=32));
 
-                            if b != *buttons {
+                            let a = *axises;
+
+                            ui.label("axises: ");
+
+                            ui.add(DragValue::new(axises).range(0..=32));
+
+                            if b != *buttons || a != *axises {
                                 output.add_event(GlobalEvents::Save);
                             }
 

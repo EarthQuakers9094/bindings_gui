@@ -6,12 +6,12 @@ use egui::{ScrollArea, TextEdit, Ui};
 use crate::{component::Component, global_state::GlobalEvents, State};
 
 #[derive(Debug)]
-pub(crate) struct ManageTab {
+pub(crate) struct ManageStreamsTab {
     pub adding: String,
     pub rename: HashMap<Rc<String>, String>,
 }
 
-impl Default for ManageTab {
+impl Default for ManageStreamsTab {
     fn default() -> Self {
         Self {
             adding: "".to_string(),
@@ -20,7 +20,7 @@ impl Default for ManageTab {
     }
 }
 
-impl Component for ManageTab {
+impl Component for ManageStreamsTab {
     type OutputEvents = GlobalEvents;
 
     type Environment = State;
@@ -40,19 +40,19 @@ impl Component for ManageTab {
                 ui.text_edit_singleline(adding);
 
                 if ui.button("add").clicked() && !adding.is_empty() {
-                    output.add_event(GlobalEvents::AddCommand(std::mem::take(adding)));
+                    output.add_event(GlobalEvents::AddStream(std::mem::take(adding)));
                     update = true;
                 }
             });
 
             ui.separator();
 
-            for command in &env.commands {
+            for stream in &env.streams {
                 ui.horizontal(|ui| {
                     let rename = self
                         .rename
-                        .entry(command.clone())
-                        .or_insert_with(|| command.to_string());
+                        .entry(stream.clone())
+                        .or_insert_with(|| stream.to_string());
 
                     let resp = ui.add(
                         TextEdit::singleline(rename)
@@ -61,26 +61,26 @@ impl Component for ManageTab {
                     );
 
                     if resp.lost_focus() {
-                        if env.commands.contains(rename) {
+                        if env.streams.contains(rename) {
                             output.add_event(GlobalEvents::DisplayError(
-                                "command of that name already exists".to_string(),
+                                "stream of that name already exists".to_string(),
                             ));
                         } else {
-                            output.add_event(GlobalEvents::RenameCommand(
-                                command.clone(),
+                            output.add_event(GlobalEvents::RenameStream(
+                                stream.clone(),
                                 Rc::new(rename.clone()),
                             ));
                         }
                     }
 
                     if ui.button("X").clicked() {
-                        let valid_remove = !env.bindings.is_used(command);
+                        let valid_remove = !env.stream_to_axis.contains_key(stream);
 
                         if valid_remove {
-                            output.add_event(GlobalEvents::RemoveCommand(command.clone()));
+                            output.add_event(GlobalEvents::RemoveStream(stream.clone()));
                         } else {
                             output.add_event(GlobalEvents::DisplayError(
-                                "can't delete a command that is still used".to_string(),
+                                "can't delete a stream that is still used".to_string(),
                             ));
                         }
                     }

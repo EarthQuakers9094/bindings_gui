@@ -228,6 +228,7 @@ impl BindingsMap {
 pub enum ControllerType {
     Generic {
         buttons: u8,
+        axises: u8,
     },
     XBox {
         sensitivity: f32,
@@ -239,8 +240,16 @@ pub enum ControllerType {
 impl ControllerType {
     fn num_buttons(&self) -> u8 {
         match self {
-            ControllerType::Generic { buttons } => *buttons,
+            ControllerType::Generic { buttons, .. } => *buttons,
             ControllerType::XBox { .. } => 10,
+            ControllerType::NotBound => 0,
+        }
+    }
+
+    fn num_axises(&self) -> u8 {
+        match self {
+            ControllerType::Generic { axises, .. } => *axises,
+            ControllerType::XBox { .. } => 6,
             ControllerType::NotBound => 0,
         }
     }
@@ -282,7 +291,7 @@ impl ControllerType {
                 _ => "ERROR",
             },
             ButtonLocation::Analog => match self {
-                ControllerType::Generic { buttons: _ } => todo!(),
+                ControllerType::Generic { .. } => todo!(),
                 ControllerType::XBox { .. } => match button.button {
                     2 => "left trigger",
                     3 => "right trigger",
@@ -293,9 +302,27 @@ impl ControllerType {
         }
     }
 
+    pub fn axis_name<'a>(&self, axis: u8, arena: &'a Bump) -> &'a str {
+        match self {
+            ControllerType::Generic { .. } => {
+                bumpalo::format!(in arena, "{}", axis).into_bump_str()
+            }
+            ControllerType::XBox { .. } => match axis {
+                0 => "left x axis",
+                1 => "left y axis",
+                2 => "left trigger",
+                3 => "right trigger",
+                4 => "right x axis",
+                5 => "right y axis",
+                _ => "ERROR",
+            },
+            ControllerType::NotBound => "ERROR",
+        }
+    }
+
     pub fn enumerate_analog<'a>(&self, arena: &'a Bump) -> &'a mut dyn Iterator<Item = Button> {
         match self {
-            ControllerType::Generic { buttons: _ } => arena.alloc([].into_iter()),
+            ControllerType::Generic { .. } => arena.alloc([].into_iter()),
             ControllerType::XBox { .. } => arena.alloc(
                 [
                     Button {
@@ -344,6 +371,10 @@ impl ControllerType {
             .chain(self.enumerate_analog(arena))
     }
 
+    pub fn enumerate_axises<'a>(&self) -> impl Iterator<Item = u8> + 'a {
+        0..self.num_axises()
+    }
+
     // todo change u8 to actual button type to include pov
     pub fn show_button_selector(
         &self,
@@ -380,7 +411,7 @@ impl ControllerType {
                 _ => [-1, 0, 45, 90, 135, 180, 225, 270].contains(&binding.button),
             },
             ButtonLocation::Analog => match self {
-                ControllerType::Generic { buttons: _ } => false,
+                ControllerType::Generic { .. } => false,
                 ControllerType::XBox { .. } => binding.button == 2 || binding.button == 3,
                 ControllerType::NotBound => false,
             },
@@ -391,6 +422,7 @@ impl ControllerType {
 #[derive(Debug, Serialize, Deserialize, Default)]
 pub(crate) struct Profile<'a> {
     pub(crate) command_to_bindings: Cow<'a, BTreeMap<Rc<String>, Vec<Binding>>>,
+    pub(crate) stream_to_axis: Cow<'a, BTreeMap<Rc<String>, (u8, u8)>>,
     pub(crate) controllers: Cow<'a, [ControllerType; 5]>,
     pub(crate) controller_names: Cow<'a, [Rc<String>; 5]>,
     pub(crate) constants: Cow<'a, Constants>,
@@ -452,6 +484,7 @@ pub(crate) struct SaveData<'a> {
     pub(crate) url: Cow<'a, Option<String>>,
     pub(crate) commands: Cow<'a, BTreeSet<Rc<String>>>,
     pub(crate) constants: Cow<'a, Constants>,
+    pub(crate) streams: Cow<'a, BTreeSet<Rc<String>>>,
 }
 
 impl SaveData<'_> {

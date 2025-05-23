@@ -20,10 +20,12 @@ mod from_commands;
 mod global_state;
 mod manage_commands;
 mod manage_controllers;
+mod manage_streams;
 mod password_lock;
 mod profiles;
 mod search_selector;
 mod single_linked_list;
+mod streams_tab;
 mod syncing;
 
 // for when external event loop support is added
@@ -101,6 +103,21 @@ impl App {
                 Tab {
                     tab: Box::new(driver_constants_tab::DriverConstantsTab {}),
                     name: "driver constants",
+                },
+                Tab {
+                    tab: Box::new(streams_tab::StreamsTab {
+                        ..Default::default()
+                    }),
+                    name: "streams tab",
+                },
+                Tab {
+                    tab: Box::new(
+                        manage_streams::ManageStreamsTab {
+                            ..Default::default()
+                        }
+                        .lock(),
+                    ),
+                    name: "manage streams tab",
                 },
             ]),
             arena: Bump::new(),
