@@ -79,7 +79,7 @@ impl Component for ManageTab {
                             Err(a) => {
                                 output.add_event(GlobalEvents::DisplayError(a.to_string()));
                                 true
-                            },
+                            }
                         };
 
                         let valid_remove = !is_used;

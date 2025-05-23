@@ -139,14 +139,11 @@ impl State {
                     |profile| {
                         let bindings = profile.command_to_bindings.to_mut().remove(&old);
 
-                        match bindings {
-                            Some(bindings) => {
-                                profile
-                                    .command_to_bindings
-                                    .to_mut()
-                                    .insert(new.clone(), bindings);
-                            }
-                            None => {}
+                        if let Some(bindings) = bindings {
+                            profile
+                                .command_to_bindings
+                                .to_mut()
+                                .insert(new.clone(), bindings);
                         }
                     },
                     arena,
@@ -386,7 +383,7 @@ impl State {
 
         f(&mut p);
 
-        let p = p.to_owned();
+        let p = p.get_owned();
 
         self.set_fields_from_profile(p);
 

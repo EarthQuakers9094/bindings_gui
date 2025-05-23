@@ -426,7 +426,7 @@ impl Profile<'_> {
         Ok(profile)
     }
 
-    pub fn to_owned(self) -> Profile<'static> {
+    pub fn get_owned(self) -> Profile<'static> {
         Profile {
             command_to_bindings: Cow::Owned(self.command_to_bindings.into_owned()),
             stream_to_axis: Cow::Owned(self.stream_to_axis.into_owned()),
