@@ -13,20 +13,12 @@ use std::path::PathBuf;
 mod bindings;
 mod component;
 mod constants;
-mod constants_tab;
-mod driver_constants_tab;
-mod from_binding;
-mod from_commands;
 mod global_state;
-mod manage_commands;
-mod manage_controllers;
-mod manage_streams;
-mod password_lock;
-mod profiles;
 mod search_selector;
 mod single_linked_list;
-mod streams_tab;
-mod syncing;
+mod tabs;
+
+use tabs::*;
 
 // for when external event loop support is added
 // mod sync_thread;
@@ -63,7 +55,7 @@ impl App {
                     name: "commands to bindings",
                 },
                 Tab {
-                    tab: Box::new(from_binding::FromBindings {
+                    tab: Box::new(tabs::from_bindings::FromBindings {
                         ..Default::default()
                     }),
                     name: "bindings to commands",
@@ -93,7 +85,7 @@ impl App {
                 },
                 Tab {
                     tab: Box::new(
-                        constants_tab::ConstantsTab {
+                        tabs::constants::ConstantsTab {
                             ..Default::default()
                         }
                         .lock(),
@@ -101,11 +93,11 @@ impl App {
                     name: "constants",
                 },
                 Tab {
-                    tab: Box::new(driver_constants_tab::DriverConstantsTab {}),
+                    tab: Box::new(tabs::driver_constants::DriverConstantsTab {}),
                     name: "driver constants",
                 },
                 Tab {
-                    tab: Box::new(streams_tab::StreamsTab {
+                    tab: Box::new(tabs::streams::StreamsTab {
                         ..Default::default()
                     }),
                     name: "streams tab",
