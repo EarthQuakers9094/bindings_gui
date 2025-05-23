@@ -181,12 +181,30 @@ impl BindingsMap {
             .get_mut(command)
             .unwrap()
             .retain(|b| *b != binding);
-        self.binding_to_commands
-            .get_mut(&(binding.controller, binding.button))
-            .unwrap()
-            .retain(|(c, when): &(Rc<String>, RunWhen)| {
-                !(command == c.as_ref() && *when == binding.during)
-            });
+
+        if self
+            .command_to_bindings
+            .get(command)
+            .unwrap_or(&Vec::new())
+            .is_empty()
+        {
+            self.command_to_bindings.remove(command);
+        }
+
+        let bind = &(binding.controller, binding.button);
+
+        self.binding_to_commands.get_mut(bind).unwrap().retain(
+            |(c, when): &(Rc<String>, RunWhen)| !(command == c.as_ref() && *when == binding.during),
+        );
+
+        if self
+            .binding_to_commands
+            .get(bind)
+            .unwrap_or(&Vec::new())
+            .is_empty()
+        {
+            self.binding_to_commands.remove(bind);
+        }
     }
 
     pub(crate) fn has_button(&self, button: PButton) -> bool {

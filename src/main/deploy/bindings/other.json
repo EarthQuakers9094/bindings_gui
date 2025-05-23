@@ -1,0 +1,23 @@
+{
+  "command_to_bindings": {},
+  "stream_to_axis": {},
+  "controllers": [
+    {
+      "XBox": {
+        "sensitivity": 0.5
+      }
+    },
+    "NotBound",
+    "NotBound",
+    "NotBound",
+    "NotBound"
+  ],
+  "controller_names": [
+    "xbox",
+    "",
+    "",
+    "",
+    ""
+  ],
+  "constants": null
+}

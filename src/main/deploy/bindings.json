@@ -1,11 +1,7 @@
 {
   "url": null,
   "commands": [],
-  "constants": {
-    "map": {
-      "a": 3.4
-    }
-  },
+  "constants": null,
   "streams": [
     "rotation",
     "x",

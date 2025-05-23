@@ -366,17 +366,15 @@ impl State {
 
             let mut path = self.deploy_dir.clone();
 
-            path.push(ele.as_str());
+            path.push("bindings");
+
+            path.push(bumpalo::format!(in arena, "{}.json", ele.as_str()).as_str());
 
             let mut file =
                 File::create(path).with_context(|| "failed to create file to savce to")?;
 
-            file.write_all(
-                serde_json::to_string_pretty(&self.to_profile_data())
-                    .unwrap()
-                    .as_bytes(),
-            )
-            .with_context(|| "failed to save to disk")?;
+            file.write_all(serde_json::to_string_pretty(&profile).unwrap().as_bytes())
+                .with_context(|| "failed to save to disk")?;
         }
 
         let mut p = self.to_profile_data();
