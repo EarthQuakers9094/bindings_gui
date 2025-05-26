@@ -3,11 +3,13 @@ use std::{
     collections::{BTreeMap, BTreeSet},
     fs::{create_dir_all, read_to_string, File},
     io::Write,
-    os::windows::process::CommandExt,
     path::PathBuf,
     process::{Child, Command},
     rc::Rc,
 };
+
+#[cfg(target_os = "windows")]
+use std::os::windows::proccess::CommandExt;
 
 use anyhow::{Context, Result};
 use bumpalo::Bump;
@@ -311,18 +313,17 @@ impl State {
                     child.kill()?
                 }
 
-                self.sync_process = Some(
-                    Command::new("scp")
-                        .arg("-r")
+                let mut c = Command::new("scp");
+
+                let command = c.arg("-r")
                         .arg(save_file.as_os_str())
-                        .arg(bumpalo::format!(in &arena, "{}/bindings", self.deploy_dir.as_os_str().to_str().unwrap()).as_str())
-                        .arg(
-                            bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/", url)
-                                .as_str(),
-                        )
-                        .creation_flags(0x08000000) // don't create new window for child proccess
-                        .spawn()?,
-                );
+                        .arg(bumpalo::format!(in &arena, "{}/bindings", self.deploy_dir.as_os_str().to_str().unwrap()).into_bump_str())
+                        .arg(bumpalo::format!(in &arena, "admin@{}:/home/lvuser/deploy/", url).into_bump_str());
+
+                #[cfg(target_os = "windows")]
+                let command = command.creation_flags(0x08000000);
+
+                self.sync_process = Some(command.spawn()?);
             }
             _ => {}
         }
