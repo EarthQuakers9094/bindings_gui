@@ -19,6 +19,7 @@ mod global_state;
 mod search_selector;
 mod single_linked_list;
 mod tabs;
+mod number_input;
 
 use tabs::*;
 

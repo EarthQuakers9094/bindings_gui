@@ -22,6 +22,8 @@ pub struct EditingStates {
     t: ConstantsType,
     name: String,
 
+    num_string: String,
+
     type_filters: Vec<String>,
     type_caches: Vec<SelectorCache<ConstantsType>>,
 }
