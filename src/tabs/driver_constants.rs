@@ -211,6 +211,26 @@ impl DriverConstantsTab {
                 ui.label("null");
                 false
             }
+            Constants::List(items, constants_type) => {
+                let mut update = false;
+                let mut id = 0;
+
+                items.retain_mut(|i| {
+                    ui.horizontal(|ui| {
+                        update |= ui.push_id(id, |ui| Self::modify_value(i, ui)).inner;
+                        id += 1;
+
+                        !ui.button("X").clicked()
+                    })
+                    .inner
+                });
+
+                if ui.button("add").clicked() {
+                    items.push(Constants::default_for_type(&constants_type));
+                }
+
+                update
+            }
         }
     }
 }

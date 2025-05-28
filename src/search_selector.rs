@@ -1,6 +1,6 @@
-use std::rc::Rc;
+use std::{hash::Hash, rc::Rc};
 
-use egui::{popup_below_widget, Id, TextEdit, Ui};
+use egui::{popup_below_widget, TextEdit, Ui};
 
 #[derive(Debug, Default, Clone)]
 pub struct SingleCache<K, V> {
@@ -34,8 +34,8 @@ impl<K, V> SingleCache<K, V> {
 
 pub type SelectorCache<A> = SingleCache<String, Vec<(Rc<String>, A)>>;
 
-pub(crate) fn search_selector<A>(
-    id: Id,
+pub(crate) fn search_selector<A, I: Hash>(
+    id: I,
     text: &mut String,
     selection: &mut A,
     options: impl Iterator<Item = (Rc<String>, A)>,
@@ -49,6 +49,8 @@ where
     let edit = ui.add(TextEdit::singleline(text).desired_width(width));
 
     let mut changed = false;
+
+    let id = ui.make_persistent_id(id);
 
     if edit.gained_focus() {
         ui.memory_mut(|mem| mem.open_popup(id));

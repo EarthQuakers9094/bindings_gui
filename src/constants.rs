@@ -19,6 +19,7 @@ pub enum Constants {
     Int(i64),
     Float(f64),
     String(String),
+    List(Vec<Constants>, ConstantsType),
 
     #[default]
     None,
@@ -43,12 +44,23 @@ impl Display for Constants {
             Constants::String(a) => write!(f, "\"{a}\""),
             Constants::Driver { default } => write!(f, "default: {default}"),
             Constants::None => write!(f, "null"),
+            Constants::List(items, _type) => {
+                write!(f, "{{")?;
+
+                for item in items {
+                    write!(f, "{item}, ")?;
+                }
+
+                write!(f, "}}")?;
+
+                Ok(())
+            }
         }
     }
 }
 
 impl Constants {
-    pub fn default_for_type(t: ConstantsType, d: ConstantsType) -> Self {
+    pub fn default_for_type(t: &ConstantsType) -> Self {
         match t {
             ConstantsType::Object => Constants::Object {
                 map: Default::default(),
@@ -56,16 +68,17 @@ impl Constants {
             ConstantsType::Float => Constants::Float(Default::default()),
             ConstantsType::Int => Constants::Int(Default::default()),
             ConstantsType::String => Constants::String(Default::default()),
-            ConstantsType::Driver => {
-                if d == ConstantsType::Driver {
+            ConstantsType::Driver(d) => {
+                if let ConstantsType::Driver(_) = d.as_ref() {
                     panic!("can't have Driver<Driver>")
                 } else {
                     Constants::Driver {
-                        default: Box::new(Self::default_for_type(d, d)),
+                        default: Box::new(Self::default_for_type(d)),
                     }
                 }
             }
             ConstantsType::Null => Constants::None,
+            ConstantsType::List(t) => Constants::List(Vec::new(), t.as_ref().clone()),
         }
     }
 
@@ -138,14 +151,15 @@ impl Constants {
     }
 }
 
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Default, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum ConstantsType {
     Object,
     Float,
     Int,
     String,
 
-    Driver,
+    Driver(Box<ConstantsType>),
+    List(Box<ConstantsType>),
 
     #[default]
     Null,
@@ -165,7 +179,8 @@ impl ConstantsType {
             ConstantsType::Int => "Int",
             ConstantsType::String => "String",
             ConstantsType::Null => "null",
-            ConstantsType::Driver => "Driver",
+            ConstantsType::Driver(..) => "Driver",
+            ConstantsType::List(..) => "List",
         }
     }
 
@@ -176,32 +191,65 @@ impl ConstantsType {
             ConstantsType::Int,
             ConstantsType::String,
             ConstantsType::Null,
+            ConstantsType::List(Box::new(Self::Null)),
         ];
         if driver {
             arena.alloc(non_driver.into_iter())
         } else {
-            arena.alloc(non_driver.into_iter().chain([ConstantsType::Driver]))
+            arena.alloc(
+                non_driver
+                    .into_iter()
+                    .chain([ConstantsType::Driver(Box::new(Self::Null))]),
+            )
+        }
+    }
+
+    fn selector_go(
+        &mut self,
+        filters: &mut Vec<String>,
+        caches: &mut Vec<SelectorCache<ConstantsType>>,
+        ui: &mut Ui,
+        driver: bool,
+        arena: &Bump,
+        id: Id,
+        loc: usize,
+    ) {
+        if filters.len() <= loc {
+            filters.push(Default::default());
+            caches.push(Default::default());
+        }
+
+        search_selector(
+            (id, loc),
+            &mut filters[loc],
+            self,
+            Self::valid_types(arena, driver).map(|a| (Rc::new(a.to_string()), a)),
+            &mut caches[loc],
+            100.0,
+            ui,
+        );
+
+        match self {
+            ConstantsType::Driver(constants_type) => {
+                constants_type.selector_go(filters, caches, ui, driver, arena, id, loc + 1);
+            }
+            ConstantsType::List(constants_type) => {
+                constants_type.selector_go(filters, caches, ui, driver, arena, id, loc + 1);
+            }
+            _ => {}
         }
     }
 
     pub fn selector(
         &mut self,
-        filter: &mut String,
-        cache: &mut SelectorCache<ConstantsType>,
+        filters: &mut Vec<String>,
+        caches: &mut Vec<SelectorCache<ConstantsType>>,
         ui: &mut Ui,
         driver: bool,
         arena: &Bump,
         id: Id,
     ) {
-        search_selector(
-            id,
-            filter,
-            self,
-            Self::valid_types(arena, driver).map(|a| (Rc::new(a.to_string()), a)),
-            cache,
-            100.0,
-            ui,
-        );
+        self.selector_go(filters, caches, ui, driver, arena, id, 0);
     }
 }
 

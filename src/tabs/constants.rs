@@ -5,7 +5,7 @@ use std::{
 };
 
 use bumpalo::Bump;
-use egui::{collapsing_header::CollapsingState, DragValue, ScrollArea, Ui};
+use egui::{collapsing_header::CollapsingState, CollapsingHeader, DragValue, ScrollArea, Ui};
 
 use crate::{
     component::EventStream,
@@ -19,12 +19,9 @@ use crate::{
 pub struct EditingStates {
     t: ConstantsType,
     name: String,
-    type_filter: String,
-    type_filter_cache: SelectorCache<ConstantsType>,
 
-    driver_type: ConstantsType,
-    driver_type_filter: String,
-    driver_type_filter_cache: SelectorCache<ConstantsType>,
+    type_filters: Vec<String>,
+    type_caches: Vec<SelectorCache<ConstantsType>>,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -117,24 +114,13 @@ impl ConstantsTab {
 
             ui.label("type:");
             state.t.selector(
-                &mut state.type_filter,
-                &mut state.type_filter_cache,
+                &mut state.type_filters,
+                &mut state.type_caches,
                 ui,
                 false,
                 arena,
                 ui.make_persistent_id(("adding id", &key)),
             );
-
-            if state.t == ConstantsType::Driver {
-                state.driver_type.selector(
-                    &mut state.driver_type_filter,
-                    &mut state.driver_type_filter_cache,
-                    ui,
-                    true,
-                    arena,
-                    ui.make_persistent_id(("adding id driver", &key)),
-                );
-            }
 
             if ui.button("add").clicked() {
                 if state.name.is_empty() {
@@ -149,7 +135,7 @@ impl ConstantsTab {
 
                 output.add_event(GlobalEvents::AddOption(
                     key,
-                    Constants::default_for_type(state.t, state.driver_type),
+                    Constants::default_for_type(&state.t),
                 ));
             }
         });
@@ -253,6 +239,29 @@ impl ConstantsTab {
             Constants::None => {
                 ui.label("null");
                 false
+            }
+            Constants::List(items, constants_type) => {
+                let mut update = false;
+
+                CollapsingHeader::new("").show(ui, |ui| {
+                    let mut id = 0;
+
+                    items.retain_mut(|i| {
+                        ui.horizontal(|ui| {
+                            update |= ui.push_id(id, |ui| Self::modify_value(i, ui)).inner;
+                            id += 1;
+
+                            !ui.button("X").clicked()
+                        })
+                        .inner
+                    });
+
+                    if ui.button("add").clicked() {
+                        items.push(Constants::default_for_type(&constants_type));
+                    }
+                });
+
+                update
             }
         }
     }
