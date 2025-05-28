@@ -48,6 +48,9 @@ pub enum RunWhen {
     OnFalse,
     WhileTrue,
     WhileFalse,
+    ToggleOnFalse,
+    ToggleOnTrue,
+    OnChange,
 }
 
 impl RunWhen {
@@ -57,6 +60,9 @@ impl RunWhen {
             RunWhen::OnFalse => "on false",
             RunWhen::WhileTrue => "while true",
             RunWhen::WhileFalse => "while false",
+            RunWhen::ToggleOnFalse => "toggle on false",
+            RunWhen::ToggleOnTrue => "toggle on true",
+            RunWhen::OnChange => "on change",
         }
     }
 
@@ -66,6 +72,9 @@ impl RunWhen {
             RunWhen::OnFalse,
             RunWhen::WhileTrue,
             RunWhen::WhileFalse,
+            RunWhen::OnChange,
+            RunWhen::ToggleOnFalse,
+            RunWhen::ToggleOnTrue,
         ]
         .into_iter()
     }
