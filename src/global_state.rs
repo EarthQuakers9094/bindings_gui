@@ -9,7 +9,7 @@ use std::{
 };
 
 #[cfg(target_os = "windows")]
-use std::os::windows::proccess::CommandExt;
+use std::os::windows::process::CommandExt;
 
 use anyhow::{Context, Result};
 use bumpalo::Bump;
