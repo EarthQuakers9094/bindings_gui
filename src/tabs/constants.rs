@@ -5,7 +5,9 @@ use std::{
 };
 
 use bumpalo::Bump;
-use egui::{collapsing_header::CollapsingState, CollapsingHeader, DragValue, ScrollArea, Ui};
+use egui::{
+    collapsing_header::CollapsingState, CollapsingHeader, ComboBox, DragValue, ScrollArea, Ui,
+};
 
 use crate::{
     component::EventStream,
@@ -257,11 +259,24 @@ impl ConstantsTab {
                     });
 
                     if ui.button("add").clicked() {
-                        items.push(Constants::default_for_type(&constants_type));
+                        items.push(Constants::default_for_type(constants_type));
                     }
                 });
 
                 update
+            }
+            Constants::Bool(value) => {
+                let mut updated = false;
+
+                ComboBox::from_label("")
+                    .selected_text(value.to_string())
+                    .show_ui(ui, |ui| {
+                        for i in [true, false] {
+                            updated |= ui.selectable_value(value, i, i.to_string()).changed();
+                        }
+                    });
+
+                updated
             }
         }
     }

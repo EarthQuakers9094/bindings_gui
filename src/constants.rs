@@ -19,6 +19,7 @@ pub enum Constants {
     Int(i64),
     Float(f64),
     String(String),
+    Bool(bool),
     List(Vec<Constants>, ConstantsType),
 
     #[default]
@@ -55,6 +56,11 @@ impl Display for Constants {
 
                 Ok(())
             }
+            Constants::Bool(b) => {
+                write!(f, "{b}")?;
+
+                Ok(())
+            }
         }
     }
 }
@@ -79,6 +85,7 @@ impl Constants {
             }
             ConstantsType::Null => Constants::None,
             ConstantsType::List(t) => Constants::List(Vec::new(), t.as_ref().clone()),
+            ConstantsType::Bool => Constants::Bool(false),
         }
     }
 
@@ -157,6 +164,7 @@ pub enum ConstantsType {
     Float,
     Int,
     String,
+    Bool,
 
     Driver(Box<ConstantsType>),
     List(Box<ConstantsType>),
@@ -181,6 +189,7 @@ impl ConstantsType {
             ConstantsType::Null => "null",
             ConstantsType::Driver(..) => "Driver",
             ConstantsType::List(..) => "List",
+            ConstantsType::Bool => "Bool",
         }
     }
 
