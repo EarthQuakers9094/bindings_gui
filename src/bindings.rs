@@ -48,9 +48,9 @@ pub enum RunWhen {
     OnFalse,
     WhileTrue,
     WhileFalse,
+    OnChange,
     ToggleOnFalse,
     ToggleOnTrue,
-    OnChange,
 }
 
 impl RunWhen {
@@ -149,6 +149,8 @@ impl From<BTreeMap<Rc<String>, Vec<Binding>>> for BindingsMap {
 
 impl BindingsMap {
     pub(crate) fn add_binding(&mut self, command: Rc<String>, binding: Binding) {
+        println!("got to adding_bindings");
+
         if !self
             .command_to_bindings
             .get(&command)
@@ -232,6 +234,7 @@ pub enum ControllerType {
     Generic {
         buttons: u8,
         axises: u8,
+        sensitivity: f32,
     },
     XBox {
         sensitivity: f32,
@@ -294,7 +297,9 @@ impl ControllerType {
                 _ => "ERROR",
             },
             ButtonLocation::Analog => match self {
-                ControllerType::Generic { .. } => todo!(),
+                ControllerType::Generic { .. } => {
+                    bumpalo::format!(in &arena, "axis: {}", button.button).into_bump_str()
+                }
                 ControllerType::XBox { .. } => match button.button {
                     2 => "left trigger",
                     3 => "right trigger",
@@ -308,7 +313,7 @@ impl ControllerType {
     pub fn axis_name<'a>(&self, axis: u8, arena: &'a Bump) -> &'a str {
         match self {
             ControllerType::Generic { .. } => {
-                bumpalo::format!(in arena, "{}", axis).into_bump_str()
+                bumpalo::format!(in arena, "axis: {}", axis).into_bump_str()
             }
             ControllerType::XBox { .. } => match axis {
                 0 => "left x axis",
@@ -325,7 +330,10 @@ impl ControllerType {
 
     pub fn enumerate_analog<'a>(&self, arena: &'a Bump) -> &'a mut dyn Iterator<Item = Button> {
         match self {
-            ControllerType::Generic { .. } => arena.alloc([].into_iter()),
+            ControllerType::Generic { axises, .. } => arena.alloc((0..*axises).map(|i| Button {
+                button: i as i16,
+                location: ButtonLocation::Analog,
+            })),
             ControllerType::XBox { .. } => arena.alloc(
                 [
                     Button {
@@ -414,7 +422,7 @@ impl ControllerType {
                 _ => [-1, 0, 45, 90, 135, 180, 225, 270].contains(&binding.button),
             },
             ButtonLocation::Analog => match self {
-                ControllerType::Generic { .. } => false,
+                ControllerType::Generic { axises, .. } => binding.button < *axises as i16,
                 ControllerType::XBox { .. } => binding.button == 2 || binding.button == 3,
                 ControllerType::NotBound => false,
             },

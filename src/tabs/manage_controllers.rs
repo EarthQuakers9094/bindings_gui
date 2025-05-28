@@ -60,12 +60,17 @@ impl Component for ManageControllers {
                                     *controller = ControllerType::Generic {
                                         buttons: 0,
                                         axises: 0,
+                                        sensitivity: 0.5,
                                     };
                                     output.add_event(GlobalEvents::Save);
                                 }
                             });
                         }
-                        ControllerType::Generic { buttons, axises } => {
+                        ControllerType::Generic {
+                            buttons,
+                            axises,
+                            sensitivity,
+                        } => {
                             ui.label("generic");
 
                             ui.label("buttons: ");
@@ -79,6 +84,10 @@ impl Component for ManageControllers {
                             ui.label("axises: ");
 
                             ui.add(DragValue::new(axises).range(0..=32));
+
+                            ui.label("sensitivity (can't hot reload): ");
+
+                            ui.add(DragValue::new(sensitivity).range(0..=1).speed(0.1));
 
                             if b != *buttons || a != *axises {
                                 output.add_event(GlobalEvents::Save);
