@@ -1,7 +1,7 @@
 use std::{collections::BTreeMap, rc::Rc};
 
 use bumpalo::Bump;
-use egui::{collapsing_header::CollapsingState, ComboBox, DragValue, ScrollArea, Ui};
+use egui::{collapsing_header::CollapsingState, ScrollArea, Ui};
 
 use crate::{
     component::EventStream,
@@ -115,7 +115,7 @@ impl DriverConstantsTab {
             for (key, value) in map {
                 let key_path = key_path.snoc(key.clone());
 
-                match value {
+                ui.push_id(key, |ui| match value {
                     Constants::Object { map } => {
                         modified |= Self::show_object(
                             key.clone(),
@@ -146,7 +146,7 @@ impl DriverConstantsTab {
                     }
 
                     _ => {}
-                }
+                });
             }
         });
 
@@ -165,7 +165,7 @@ impl DriverConstantsTab {
         ui.horizontal(|ui| match constant {
             Some(c) => {
                 ui.label(bumpalo::format!(in &arena, "{} = ", name).as_str());
-                let ret = Self::modify_value(c, ui);
+                let ret = crate::tabs::constants::ConstantsTab::modify_value(arena, c, ui);
 
                 if ui.button("reset").clicked() {
                     output.add_event(GlobalEvents::RemoveOptionDriver(Rc::new(key_path.to_vec())));
@@ -185,65 +185,5 @@ impl DriverConstantsTab {
             }
         })
         .inner
-    }
-
-    fn modify_value(constant: &mut Constants, ui: &mut Ui) -> bool {
-        match constant {
-            Constants::Object { .. } => panic!("invalid argument"),
-            Constants::Float(f) => {
-                let o = *f;
-                ui.add(DragValue::new(f).speed(0.01));
-
-                *f != o
-            }
-            Constants::Int(i) => {
-                let o = *i;
-                ui.add(DragValue::new(i));
-
-                *i != o
-            }
-            Constants::String(s) => ui.text_edit_singleline(s).lost_focus(),
-            Constants::Driver { default } => {
-                ui.label("default");
-                Self::modify_value(default.as_mut(), ui)
-            }
-            Constants::None => {
-                ui.label("null");
-                false
-            }
-            Constants::List(items, constants_type) => {
-                let mut update = false;
-                let mut id = 0;
-
-                items.retain_mut(|i| {
-                    ui.horizontal(|ui| {
-                        update |= ui.push_id(id, |ui| Self::modify_value(i, ui)).inner;
-                        id += 1;
-
-                        !ui.button("X").clicked()
-                    })
-                    .inner
-                });
-
-                if ui.button("add").clicked() {
-                    items.push(Constants::default_for_type(constants_type));
-                }
-
-                update
-            }
-            Constants::Bool(value) => {
-                let mut updated = false;
-
-                ComboBox::from_label("")
-                    .selected_text(value.to_string())
-                    .show_ui(ui, |ui| {
-                        for i in [true, false] {
-                            updated |= ui.selectable_value(value, i, i.to_string()).changed();
-                        }
-                    });
-
-                updated
-            }
-        }
     }
 }

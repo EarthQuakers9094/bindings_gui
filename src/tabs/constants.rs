@@ -1,18 +1,19 @@
 use std::{
     collections::{BTreeMap, HashMap},
     mem,
+    ops::DerefMut,
     rc::Rc,
 };
 
 use bumpalo::Bump;
-use egui::{
-    collapsing_header::CollapsingState, CollapsingHeader, ComboBox, DragValue, ScrollArea, Ui,
-};
+use egui::{collapsing_header::CollapsingState, CollapsingHeader, ComboBox, ScrollArea, Ui};
+use egui_hooks::UseHookExt;
 
 use crate::{
     component::EventStream,
     constants::{Constants, ConstantsType, OptionLocation},
     global_state::{GlobalEvents, State},
+    number_input::number_input,
     search_selector::SelectorCache,
     Component,
 };
@@ -21,8 +22,6 @@ use crate::{
 pub struct EditingStates {
     t: ConstantsType,
     name: String,
-
-    num_string: String,
 
     type_filters: Vec<String>,
     type_caches: Vec<SelectorCache<ConstantsType>>,
@@ -55,7 +54,7 @@ impl Component for ConstantsTab {
             match constants {
                 Constants::Object { map } => {
                     for (key, value) in map.iter_mut() {
-                        match value {
+                        ui.push_id(key, |ui| match value {
                             Constants::Object { map } => {
                                 modified |= self.show_object(
                                     key.clone(),
@@ -76,7 +75,7 @@ impl Component for ConstantsTab {
                                     arena,
                                 )
                             }
-                        }
+                        });
                     }
                 }
                 Constants::None => {}
@@ -207,12 +206,12 @@ impl ConstantsTab {
     ) -> bool {
         ui.horizontal(|ui| {
             ui.label(bumpalo::format!(in &arena, "{} = ", name).as_str());
-            let ret = Self::modify_value(constant, ui);
+            let ret = Self::modify_value(arena, constant, ui);
 
             if ui.button("X").clicked() {
                 let k = Rc::make_mut(&mut key_path);
                 k.push(name);
-                output.add_event(GlobalEvents::RemoveOption(key_path));
+                output.add_event(GlobalEvents::RemoveOption(dbg!(key_path)));
             }
 
             ret
@@ -220,25 +219,23 @@ impl ConstantsTab {
         .inner
     }
 
-    fn modify_value(constant: &mut Constants, ui: &mut Ui) -> bool {
+    pub fn modify_value(arena: &Bump, constant: &mut Constants, ui: &mut Ui) -> bool {
         match constant {
             Constants::Object { .. } => panic!("invalid argument"),
             Constants::Float(f) => {
-                let o = *f;
-                ui.add(DragValue::new(f).speed(0.01));
+                let mut s = ui.use_state(|| f.to_string(), ()).into_var();
 
-                *f != o
+                number_input(s.deref_mut(), f, arena, ui)
             }
             Constants::Int(i) => {
-                let o = *i;
-                ui.add(DragValue::new(i).speed(1));
+                let mut s = ui.use_state(|| i.to_string(), ()).into_var();
 
-                *i != o
+                number_input(s.deref_mut(), i, arena, ui)
             }
             Constants::String(s) => ui.text_edit_singleline(s).lost_focus(),
             Constants::Driver { default } => {
                 ui.label("default");
-                Self::modify_value(default.as_mut(), ui)
+                Self::modify_value(arena, default.as_mut(), ui)
             }
             Constants::None => {
                 ui.label("null");
@@ -252,7 +249,7 @@ impl ConstantsTab {
 
                     items.retain_mut(|i| {
                         ui.horizontal(|ui| {
-                            update |= ui.push_id(id, |ui| Self::modify_value(i, ui)).inner;
+                            update |= ui.push_id(id, |ui| Self::modify_value(arena, i, ui)).inner;
                             id += 1;
 
                             !ui.button("X").clicked()

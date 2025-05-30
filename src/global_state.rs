@@ -189,6 +189,8 @@ impl State {
             GlobalEvents::RemoveOption(key) => {
                 self.constants.remove_key(&key);
 
+                dbg!(&self.constants);
+
                 if let Err(err) = self.map_profiles(
                     |profile| {
                         profile.constants.to_mut().remove_key(&key);
@@ -197,6 +199,8 @@ impl State {
                 ) {
                     self.handle_event(GlobalEvents::DisplayError(err.to_string()), arena, toasts);
                 }
+
+                dbg!(&self.constants);
 
                 true
             }
@@ -266,7 +270,7 @@ impl State {
         self.bindings = profile.command_to_bindings.into_owned().into();
         self.controller_names = profile.controller_names.into_owned();
         self.controllers = profile.controllers.into_owned();
-        self.constants = profile.constants.into_owned();
+        self.driver_constants = profile.constants.into_owned();
         self.stream_to_axis = profile.stream_to_axis.into_owned();
     }
 

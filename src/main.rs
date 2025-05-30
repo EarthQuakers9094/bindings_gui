@@ -16,10 +16,10 @@ mod bindings;
 mod component;
 mod constants;
 mod global_state;
+mod number_input;
 mod search_selector;
 mod single_linked_list;
 mod tabs;
-mod number_input;
 
 use tabs::*;
 

@@ -139,7 +139,7 @@ impl Constants {
     }
 
     pub fn remove_key(&mut self, key: &[Rc<String>]) {
-        if *self == Constants::None {
+        if **dbg!(&self) == Constants::None {
             return;
         }
 
@@ -155,6 +155,8 @@ impl Constants {
                     .remove_key(&key[1..]);
             }
         }
+
+        dbg!(self);
     }
 }
 
@@ -195,7 +197,6 @@ impl ConstantsType {
 
     pub fn valid_types(arena: &Bump, driver: bool) -> &mut dyn Iterator<Item = Self> {
         let non_driver = [
-            ConstantsType::Object,
             ConstantsType::Float,
             ConstantsType::Int,
             ConstantsType::String,
@@ -240,10 +241,10 @@ impl ConstantsType {
 
         match self {
             ConstantsType::Driver(constants_type) => {
-                constants_type.selector_go(filters, caches, ui, driver, arena, id, loc + 1);
+                constants_type.selector_go(filters, caches, ui, true, arena, id, loc + 1);
             }
             ConstantsType::List(constants_type) => {
-                constants_type.selector_go(filters, caches, ui, driver, arena, id, loc + 1);
+                constants_type.selector_go(filters, caches, ui, true, arena, id, loc + 1);
             }
             _ => {}
         }
