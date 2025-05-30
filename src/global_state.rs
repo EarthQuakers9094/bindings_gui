@@ -189,8 +189,6 @@ impl State {
             GlobalEvents::RemoveOption(key) => {
                 self.constants.remove_key(&key);
 
-                dbg!(&self.constants);
-
                 if let Err(err) = self.map_profiles(
                     |profile| {
                         profile.constants.to_mut().remove_key(&key);
@@ -199,8 +197,6 @@ impl State {
                 ) {
                     self.handle_event(GlobalEvents::DisplayError(err.to_string()), arena, toasts);
                 }
-
-                dbg!(&self.constants);
 
                 true
             }

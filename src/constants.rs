@@ -139,7 +139,7 @@ impl Constants {
     }
 
     pub fn remove_key(&mut self, key: &[Rc<String>]) {
-        if **dbg!(&self) == Constants::None {
+        if *self == Constants::None {
             return;
         }
 
@@ -155,8 +155,6 @@ impl Constants {
                     .remove_key(&key[1..]);
             }
         }
-
-        dbg!(self);
     }
 }
 
