@@ -200,17 +200,15 @@ impl ConstantsType {
             ConstantsType::Float,
             ConstantsType::Int,
             ConstantsType::String,
-            ConstantsType::Null,
             ConstantsType::List(Box::new(Self::Null)),
         ];
         if driver {
             arena.alloc(non_driver.into_iter())
         } else {
-            arena.alloc(
-                non_driver
-                    .into_iter()
-                    .chain([ConstantsType::Driver(Box::new(Self::Null))]),
-            )
+            arena.alloc(non_driver.into_iter().chain([
+                ConstantsType::Driver(Box::new(Self::Null)),
+                ConstantsType::Object,
+            ]))
         }
     }
 
