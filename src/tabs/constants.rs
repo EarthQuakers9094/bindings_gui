@@ -128,7 +128,7 @@ impl ConstantsTab {
             if ui.button("add").clicked() {
                 if state.name.is_empty() {
                     output.add_event(GlobalEvents::DisplayError(
-                        "no name provided for event".to_string(),
+                        "no name provided for constant".to_string(),
                     ));
                     return;
                 }
@@ -174,7 +174,7 @@ impl ConstantsTab {
             self.add_dialog(key_path.clone(), output, arena, ui);
 
             for (key, value) in constants {
-                match value {
+                ui.push_id(key, |ui| match value {
                     Constants::Object { map } => {
                         modified |=
                             self.show_object(key.clone(), map, key_path.clone(), output, arena, ui);
@@ -189,7 +189,7 @@ impl ConstantsTab {
                             arena,
                         )
                     }
-                }
+                });
             }
         });
 

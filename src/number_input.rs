@@ -1,7 +1,17 @@
-use anyhow::Result;
+use std::str::FromStr;
+
+use anyhow::{Context, Result};
 use bumpalo::Bump;
+use chumsky::{
+    error::Simple,
+    extra,
+    pratt::{infix, left},
+    prelude::just,
+    recursive,
+    regex::regex,
+    Parser,
+};
 use egui::{TextEdit, Ui};
-use pom::utf8::{call, end, is_a, sym, Parser};
 
 #[derive(Debug, PartialEq)]
 enum Ast<'a> {
@@ -30,74 +40,26 @@ impl<'a> Ast<'a> {
     }
 }
 
-fn whitespace<'a>() -> Parser<'a, ()> {
-    is_a(|a| a.is_whitespace()).repeat(0..).discard()
-}
-
-fn number<'a>(arena: &'a Bump) -> Parser<'a, &'a Ast<'a>> {
-    (is_a(|a| a.is_numeric()).repeat(1..) * (sym('.') * is_a(|a| a.is_numeric()).repeat(0..)).opt())
-        .collect()
-        .map(|s| -> &'a Ast<'a> { Ast::num(arena, s.parse::<f64>().unwrap()) })
-        - whitespace()
-}
-
-fn basic<'a>(arena: &'a Bump) -> Parser<'a, &'a Ast<'a>> {
-    number(arena) | ((sym('(') + whitespace()) * call(|| add(arena)) - (sym(')') + whitespace()))
-}
-
-enum Operator {
-    Add,
-    Sub,
-    Mult,
-    Div,
-}
-
-fn plus_operator<'a>() -> Parser<'a, Operator> {
-    (sym('+') - whitespace()).map(|_| Operator::Add)
-        | (sym('-') - whitespace()).map(|_| Operator::Sub)
-}
-
-fn mult_operator<'a>() -> Parser<'a, Operator> {
-    (sym('*') - whitespace()).map(|_| Operator::Mult)
-        | (sym('/') - whitespace()).map(|_| Operator::Div)
-}
-
-fn operator_to_expr<'a>(
-    op: Operator,
-    a1: &'a Ast<'a>,
-    a2: &'a Ast<'a>,
-    arena: &'a Bump,
-) -> &'a Ast<'a> {
-    match op {
-        Operator::Add => Ast::add(arena, a1, a2),
-        Operator::Sub => Ast::sub(arena, a1, a2),
-        Operator::Mult => Ast::mult(arena, a1, a2),
-        Operator::Div => Ast::div(arena, a1, a2),
-    }
-}
-
-fn add<'a>(arena: &'a Bump) -> Parser<'a, &'a Ast<'a>> {
-    (mult(arena) + (plus_operator() + call(|| add(arena))).opt()).map(|(a, a2)| {
-        if let Some((o, a2)) = a2 {
-            operator_to_expr(o, a, a2, arena)
-        } else {
-            a
-        }
-    })
-}
-
-fn mult<'a>(arena: &'a Bump) -> Parser<'a, &'a Ast<'a>> {
-    (basic(arena) + (mult_operator() + call(|| mult(arena))).opt()).map(|(a, a2)| {
-        if let Some((o, a2)) = a2 {
-            operator_to_expr(o, a, a2, arena)
-        } else {
-            a
-        }
-    })
-}
-
 fn parse<'a>(s: &'a str, arena: &'a Bump) -> Result<&'a Ast<'a>> {
-    Ok((whitespace() * add(arena) - end()).parse(s.as_bytes())?)
+    let res = recursive::recursive::<_, _, extra::Err<Simple<char>>, _, _>(|a| {
+        let atom = regex("-?\\d+(\\.\\d*)?")
+            .map(|a| Ok::<_, <f64 as FromStr>::Err>(Ast::num(arena, str::parse::<f64>(a)?)))
+            .unwrapped()
+            .padded()
+            .or(a.delimited_by(just('(').padded(), just(')').padded()));
+
+        let op = |c| just(c).padded();
+
+        atom.pratt((
+            infix(left(2), op('*'), |l, _, r, _| Ast::mult(arena, l, r)),
+            infix(left(2), op('/'), |l, _, r, _| Ast::div(arena, l, r)),
+            infix(left(1), op('+'), |l, _, r, _| Ast::add(arena, l, r)),
+            infix(left(1), op('-'), |l, _, r, _| Ast::sub(arena, l, r)),
+        ))
+    })
+    .parse(s);
+
+    Ok(res.output().with_context(|| "failed to parse")?)
 }
 
 fn eval(a: &Ast<'_>) -> f64 {
@@ -171,6 +133,41 @@ mod test {
                 &arena,
                 Ast::mult(&arena, Ast::num(&arena, 2.0), Ast::num(&arena, 3.0)),
                 Ast::num(&arena, 1.0)
+            )
+        )
+    }
+
+    #[test]
+    fn minus() {
+        let arena = Bump::new();
+
+        assert_eq!(parse("-2.1", &arena).unwrap(), Ast::num(&arena, -2.1))
+    }
+
+    #[test]
+    fn lefttoright() {
+        let arena = Bump::new();
+
+        assert_eq!(
+            parse("2 / 3 * 2", &arena).unwrap(),
+            Ast::mult(
+                &arena,
+                Ast::div(&arena, Ast::num(&arena, 2.0), Ast::num(&arena, 3.0)),
+                Ast::num(&arena, 2.0)
+            )
+        )
+    }
+
+    #[test]
+    fn lefttorightadd() {
+        let arena = Bump::new();
+
+        assert_eq!(
+            parse("2 + 3 - 2", &arena).unwrap(),
+            Ast::sub(
+                &arena,
+                Ast::add(&arena, Ast::num(&arena, 2.0), Ast::num(&arena, 3.0)),
+                Ast::num(&arena, 2.0)
             )
         )
     }
