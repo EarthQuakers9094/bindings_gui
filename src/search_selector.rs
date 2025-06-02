@@ -1,6 +1,7 @@
 use std::{hash::Hash, rc::Rc};
 
 use egui::{popup_below_widget, TextEdit, Ui};
+use once_cell::sync::Lazy;
 
 #[derive(Debug, Default, Clone)]
 pub struct SingleCache<K, V> {
@@ -34,6 +35,13 @@ impl<K, V> SingleCache<K, V> {
 
 pub type SelectorCache<A> = SingleCache<String, Vec<(Rc<String>, A)>>;
 
+pub(crate) fn valid_result(a: &str, selector: &str) -> bool {
+    let on = a.to_lowercase();
+    let mut keywords = selector.split_whitespace().map(|a| a);
+
+    keywords.all(|keyword| on.contains(&keyword))
+}
+
 pub(crate) fn search_selector<A, I: Hash>(
     id: I,
     text: &mut String,
@@ -56,15 +64,18 @@ where
         ui.memory_mut(|mem| mem.open_popup(id));
     }
 
+
     popup_below_widget(
         ui,
         id,
         &edit,
         egui::PopupCloseBehavior::CloseOnClickOutside,
         |ui| {
+            let ntext = Lazy::new(|| text.to_lowercase());
+
             let vals = cache.get(text, || {
                 options
-                    .filter(|(name, _value)| name.contains(text.as_str()))
+                    .filter(|(name, _value)| valid_result(name.as_str(), &ntext))
                     .take(10)
                     .collect::<Vec<_>>()
             });
