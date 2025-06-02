@@ -156,7 +156,8 @@ impl NumberInput for i64 {
     }
 }
 
-// add error reporting
+// this function in copied and pasted because I can't be bothered 
+// to abstract it to remove duplication
 pub fn number_input<N>(text: &mut String, value: &mut N, arena: &Bump, ui: &mut Ui) -> bool
 where
     N: ToString + Copy + NumberInput,
@@ -215,7 +216,6 @@ where
     update
 }
 
-// add error reporting
 pub fn distance_input<N>(text: &mut String, value: &mut N, arena: &Bump, ui: &mut Ui) -> bool
 where
     N: ToString + Copy + NumberInput,
@@ -274,7 +274,6 @@ where
     update
 }
 
-// add error reporting
 pub fn angle_input<N>(text: &mut String, value: &mut N, arena: &Bump, ui: &mut Ui) -> bool
 where
     N: ToString + Copy + NumberInput,
