@@ -242,7 +242,11 @@ impl ConstantsType {
             ConstantsType::List(constants_type) => {
                 constants_type.selector_go(filters, caches, ui, true, arena, id, loc + 1);
             }
-            _ => {}
+            _ => {
+                if filters.len() >= loc {
+                    filters.truncate(loc + 1);
+                }
+            }
         }
     }
 
