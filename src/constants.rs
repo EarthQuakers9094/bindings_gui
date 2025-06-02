@@ -21,6 +21,12 @@ pub enum Constants {
     String(String),
     Bool(bool),
     List(Vec<Constants>, ConstantsType),
+    Meters {
+        distance: f64,
+    },
+    Degrees {
+        degrees: f64,
+    },
 
     #[default]
     None,
@@ -61,6 +67,10 @@ impl Display for Constants {
 
                 Ok(())
             }
+            Constants::Meters { distance } => write!(f, "{distance} m"),
+            Constants::Degrees { degrees } => {
+                write!(f, "{degrees} ")
+            }
         }
     }
 }
@@ -86,6 +96,8 @@ impl Constants {
             ConstantsType::Null => Constants::None,
             ConstantsType::List(t) => Constants::List(Vec::new(), t.as_ref().clone()),
             ConstantsType::Bool => Constants::Bool(false),
+            ConstantsType::Distance => Constants::Meters { distance: 0.0 },
+            ConstantsType::Angle => Constants::Degrees { degrees: 0.0 },
         }
     }
 
@@ -165,6 +177,8 @@ pub enum ConstantsType {
     Int,
     String,
     Bool,
+    Distance,
+    Angle,
 
     Driver(Box<ConstantsType>),
     List(Box<ConstantsType>),
@@ -190,6 +204,8 @@ impl ConstantsType {
             ConstantsType::Driver(..) => "Driver",
             ConstantsType::List(..) => "List",
             ConstantsType::Bool => "Bool",
+            ConstantsType::Distance => "Distance",
+            ConstantsType::Angle => "Angle",
         }
     }
 
@@ -198,6 +214,8 @@ impl ConstantsType {
             ConstantsType::Float,
             ConstantsType::Int,
             ConstantsType::String,
+            ConstantsType::Angle,
+            ConstantsType::Distance,
             ConstantsType::List(Box::new(Self::Null)),
         ];
         if driver {

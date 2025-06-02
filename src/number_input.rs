@@ -6,12 +6,12 @@ use chumsky::{
     error::Simple,
     extra,
     pratt::{infix, left},
-    prelude::just,
+    prelude::{empty, just},
     recursive,
     regex::regex,
     Parser,
 };
-use egui::{TextEdit, Ui};
+use egui::{Color32, TextEdit, Ui};
 
 #[derive(Debug, PartialEq)]
 enum Ast<'a> {
@@ -20,6 +20,14 @@ enum Ast<'a> {
     Div(&'a Ast<'a>, &'a Ast<'a>),
     Sub(&'a Ast<'a>, &'a Ast<'a>),
     Num(f64),
+
+    Meters(f64),
+    Inches(f64),
+    Centimeters(f64),
+    Feet(f64),
+
+    Radians(f64),
+    Degrees(f64),
 }
 
 impl<'a> Ast<'a> {
@@ -40,12 +48,34 @@ impl<'a> Ast<'a> {
     }
 }
 
+fn to_constructor(con: &dyn Fn(f64) -> Ast<'static>) -> &dyn Fn(f64) -> Ast<'static> {
+    con
+}
+
 fn parse<'a>(s: &'a str, arena: &'a Bump) -> Result<&'a Ast<'a>> {
-    let res = recursive::recursive::<_, _, extra::Err<Simple<char>>, _, _>(|a| {
-        let atom = regex("-?\\d+(\\.\\d*)?")
-            .map(|a| Ok::<_, <f64 as FromStr>::Err>(Ast::num(arena, str::parse::<f64>(a)?)))
+    let res = recursive::recursive::<_, &'a Ast<'a>, extra::Err<Simple<char>>, _, _>(|a| {
+        let num = regex("-?\\d+(\\.\\d*)?")
+            .map(|a| Ok::<_, <f64 as FromStr>::Err>(str::parse::<f64>(a)?))
             .unwrapped()
-            .padded()
+            .padded();
+
+        let unit = (just("m")
+            .to(to_constructor(&Ast::Meters))
+            .or(just("cm").to(to_constructor(&Ast::Centimeters)))
+            .or(just("ft").to(to_constructor(&Ast::Feet)))
+            .or(just("in").to(to_constructor(&Ast::Inches)))
+            .or(just("rad").to(to_constructor(&Ast::Radians)))
+            .or(just("deg").to(to_constructor(&Ast::Degrees))))
+        .padded();
+
+        let atom = num
+            .then(unit.map(Option::Some).or(empty().to(None)))
+            .map(
+                |(a, b): (f64, Option<&dyn Fn(f64) -> Ast<'static>>)| match b {
+                    Some(f) => arena.alloc(f(a)),
+                    None => Ast::num(arena, a),
+                },
+            )
             .or(a.delimited_by(just('(').padded(), just(')').padded()));
 
         let op = |c| just(c).padded();
@@ -62,13 +92,51 @@ fn parse<'a>(s: &'a str, arena: &'a Bump) -> Result<&'a Ast<'a>> {
     Ok(res.output().with_context(|| "failed to parse")?)
 }
 
-fn eval(a: &Ast<'_>) -> f64 {
+enum NumOrUnit {
+    Num(f64),
+    Distance(f64), // meters
+    Angle(f64),    // radians
+}
+
+fn eval(a: &Ast<'_>) -> Option<NumOrUnit> {
     match a {
-        Ast::Add(ast, ast1) => eval(ast) + eval(ast1),
-        Ast::Mult(ast, ast1) => eval(ast) * eval(ast1),
-        Ast::Div(ast, ast1) => eval(ast) / eval(ast1),
-        Ast::Sub(ast, ast1) => eval(ast) - eval(ast1),
-        Ast::Num(n) => *n,
+        Ast::Add(ast, ast1) => match (eval(ast)?, eval(ast1)?) {
+            (NumOrUnit::Angle(a), NumOrUnit::Angle(b)) => Some(NumOrUnit::Angle(a + b)),
+            (NumOrUnit::Distance(a), NumOrUnit::Distance(b)) => Some(NumOrUnit::Distance(a + b)),
+            (NumOrUnit::Num(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Num(a + b)),
+            (_, _) => None,
+        },
+        Ast::Mult(ast, ast1) => match (eval(ast)?, eval(ast1)?) {
+            (NumOrUnit::Num(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Num(a * b)),
+            (NumOrUnit::Num(a), NumOrUnit::Distance(b)) => Some(NumOrUnit::Distance(a * b)),
+            (NumOrUnit::Num(a), NumOrUnit::Angle(b)) => Some(NumOrUnit::Angle(a * b)),
+            (NumOrUnit::Distance(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Distance(a * b)),
+            (NumOrUnit::Angle(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Angle(a * b)),
+            (_, _) => None,
+        },
+
+        Ast::Div(ast, ast1) => match (eval(ast)?, eval(ast1)?) {
+            (NumOrUnit::Num(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Num(a / b)),
+            (NumOrUnit::Distance(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Distance(a / b)),
+            (NumOrUnit::Distance(a), NumOrUnit::Distance(b)) => Some(NumOrUnit::Num(a / b)),
+            (NumOrUnit::Angle(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Angle(a / b)),
+            (NumOrUnit::Angle(a), NumOrUnit::Angle(b)) => Some(NumOrUnit::Num(a / b)),
+            (_, _) => None,
+        },
+
+        Ast::Sub(ast, ast1) => match (eval(ast)?, eval(ast1)?) {
+            (NumOrUnit::Angle(a), NumOrUnit::Angle(b)) => Some(NumOrUnit::Angle(a - b)),
+            (NumOrUnit::Distance(a), NumOrUnit::Distance(b)) => Some(NumOrUnit::Distance(a - b)),
+            (NumOrUnit::Num(a), NumOrUnit::Num(b)) => Some(NumOrUnit::Num(a - b)),
+            (_, _) => None,
+        },
+        Ast::Num(n) => Some(NumOrUnit::Num(*n)),
+        Ast::Meters(meters) => Some(NumOrUnit::Distance(*meters)),
+        Ast::Inches(inches) => Some(NumOrUnit::Distance(inches * 0.0254)),
+        Ast::Centimeters(cm) => Some(NumOrUnit::Distance(cm * 0.01)),
+        Ast::Feet(feet) => Some(NumOrUnit::Distance(feet * 12.0 * 0.0254)),
+        Ast::Radians(rad) => Some(NumOrUnit::Angle(*rad)),
+        Ast::Degrees(degrees) => Some(NumOrUnit::Angle(*degrees / 180.0 * std::f64::consts::PI)),
     }
 }
 
@@ -88,6 +156,7 @@ impl NumberInput for i64 {
     }
 }
 
+// add error reporting
 pub fn number_input<N>(text: &mut String, value: &mut N, arena: &Bump, ui: &mut Ui) -> bool
 where
     N: ToString + Copy + NumberInput,
@@ -96,10 +165,21 @@ where
 
     let before = arena.alloc_str(text);
 
+    let mut show_error = false;
+
     if ui.add(TextEdit::singleline(text)).lost_focus() {
         *value = match parse(text, arena) {
-            Ok(ast) => NumberInput::from_f64(eval(ast)),
-            Err(_) => *value,
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Num(n)) => NumberInput::from_f64(n),
+                _ => {
+                    show_error = true;
+                    *value
+                }
+            },
+            Err(_) => {
+                show_error = true;
+                *value
+            }
         };
 
         update = true;
@@ -109,11 +189,145 @@ where
 
     if before != text {
         *value = match parse(text, arena) {
-            Ok(ast) => NumberInput::from_f64(eval(ast)),
-            Err(_) => *value,
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Num(n)) => NumberInput::from_f64(n),
+                _ => {
+                    show_error = true;
+                    *value
+                }
+            },
+            Err(_) => {
+                show_error = true;
+                *value
+            }
         };
 
         update = true;
+    }
+
+    if show_error {
+        ui.colored_label(
+            Color32::from_rgb(0xf3, 0x8b, 0xa8),
+            "ERROR FAILED TO EVALUATE",
+        );
+    }
+
+    update
+}
+
+// add error reporting
+pub fn distance_input<N>(text: &mut String, value: &mut N, arena: &Bump, ui: &mut Ui) -> bool
+where
+    N: ToString + Copy + NumberInput,
+{
+    let mut update = false;
+
+    let before = arena.alloc_str(text);
+
+    let mut show_error = false;
+
+    if ui.add(TextEdit::singleline(text)).lost_focus() {
+        *value = match parse(text, arena) {
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Distance(n)) => NumberInput::from_f64(n),
+                _ => {
+                    show_error = true;
+                    *value
+                }
+            },
+            Err(_) => {
+                show_error = true;
+                *value
+            }
+        };
+
+        update = true;
+
+        *text = format!("{} m", value.to_string());
+    }
+
+    if before != text {
+        *value = match parse(text, arena) {
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Distance(n)) => NumberInput::from_f64(n),
+                _ => {
+                    show_error = true;
+                    *value
+                }
+            },
+            Err(_) => {
+                show_error = true;
+                *value
+            }
+        };
+
+        update = true;
+    }
+
+    if show_error {
+        ui.colored_label(
+            Color32::from_rgb(0xf3, 0x8b, 0xa8),
+            "ERROR FAILED TO EVALUATE",
+        );
+    }
+
+    update
+}
+
+// add error reporting
+pub fn angle_input<N>(text: &mut String, value: &mut N, arena: &Bump, ui: &mut Ui) -> bool
+where
+    N: ToString + Copy + NumberInput,
+{
+    let mut update = false;
+
+    let before = arena.alloc_str(text);
+
+    let mut show_error = false;
+
+    if ui.add(TextEdit::singleline(text)).lost_focus() {
+        *value = match parse(text, arena) {
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Angle(n)) => NumberInput::from_f64(n),
+                _ => {
+                    show_error = true;
+                    *value
+                }
+            },
+            Err(_) => {
+                show_error = true;
+                *value
+            }
+        };
+
+        update = true;
+
+        *text = format!("{} deg", value.to_string());
+    }
+
+    if before != text {
+        *value = match parse(text, arena) {
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Angle(n)) => NumberInput::from_f64(n),
+                _ => {
+                    show_error = true;
+                    *value
+                }
+            },
+            Err(_) => {
+                show_error = true;
+                *value
+            }
+        };
+
+        update = true;
+    }
+
+    if show_error {
+        ui.colored_label(
+            Color32::from_rgb(0xf3, 0x8b, 0xa8),
+            "ERROR FAILED TO EVALUATE",
+        );
     }
 
     update
@@ -183,7 +397,10 @@ mod test {
         let arena = Bump::new();
 
         let value = match parse(&text, &arena) {
-            Ok(ast) => NumberInput::from_f64(eval(ast)),
+            Ok(ast) => match eval(ast) {
+                Some(NumOrUnit::Num(n)) => n,
+                _ => 0.0,
+            },
             Err(_) => 0.0,
         };
 

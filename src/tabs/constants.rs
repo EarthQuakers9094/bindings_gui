@@ -13,7 +13,7 @@ use crate::{
     component::EventStream,
     constants::{Constants, ConstantsType, OptionLocation},
     global_state::{GlobalEvents, State},
-    number_input::number_input,
+    number_input::{angle_input, distance_input, number_input},
     search_selector::SelectorCache,
     Component,
 };
@@ -277,6 +277,21 @@ impl ConstantsTab {
 
                 updated
             }
+            Constants::Meters { distance } => {
+                ui.label("meters: ");
+
+                let mut s = ui.use_state(|| format!("{} m", distance), ()).into_var();
+
+                distance_input(&mut s, distance, arena, ui)
+            }
+            Constants::Degrees { degrees } => {
+                ui.label("degrees: ");
+
+                let mut s = ui.use_state(|| format!("{} deg", degrees), ()).into_var();
+
+                angle_input(&mut s, degrees, arena, ui)
+
+            },
         }
     }
 }
